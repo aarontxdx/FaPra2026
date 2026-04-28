@@ -39,13 +39,15 @@ public:
 
             if (area.tags().has_key("admin_level"))
             {
-                admin.admin_level = area.tags()["admin_level"];
+                admin.admin_level = std::stoi(area.tags()["admin_level"]);
             }
 
             if (area.tags().has_key("boundary"))
             {
                 admin.boundary = area.tags()["boundary"];
             }
+
+            admin.id = area.id();
 
             for (const auto &outer : area.outer_rings())
             {

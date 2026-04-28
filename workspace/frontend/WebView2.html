@@ -68,11 +68,26 @@
 
     <section>
       <h3>Settings</h3>
-      <label>
-        Building threshold:
-      </label>
+
+      <!-- Building -->
+      <label>Building threshold:</label>
       <input type="text" id="thresholdInput" placeholder="threshold" size="16">
-      <button onclick="setThreshold(document.getElementById('thresholdInput').value)" id="searchBtn">Set threshold</button>
+      <button onclick="setThreshold(document.getElementById('thresholdInput').value)">
+        Set building threshold
+      </button>
+
+      <br><br>
+
+      <!-- AdminAreas -->
+      <label>Admin threshold:</label>
+      <input type="text" id="adminThresholdInput" placeholder="Admin area threshold" size="17">
+      <button onclick="setAdminThreshold(document.getElementById('adminThresholdInput').value)">
+        Set admin threshold
+      </button>
+
+      <br><br>
+
+      <!-- Optional: Slider behalten -->
       <label for="adminSlider">Admin-Level:</label>
       <input type="range" id="adminSlider" min="0" max="6" step="1" value="0">
       <span id="adminLabel"></span>
@@ -91,6 +106,7 @@
   <script>
     const map = L.map('map').setView([48.7758, 9.1829], 13);
     var buildingThreshold = 1000;
+    var adminThreshold = 10;
     var currentAdminLevel = 2;
 
     const buildingLayer = L.layerGroup();
@@ -168,48 +184,26 @@
         // Layer leeren (wichtig: Klammern!)
         adminLayer.clearLayers();
 
-        fetch("http://localhost:8080/loadAdminAreas?adminLevel=" + currentAdminLevel)
-            .then(res => res.json())
-            .then(dataArray => {
-
-                console.log("Empfangenes Array:", dataArray);
-
-                const allFeatures = [];
-
-                dataArray.forEach(item => {
-                    if (item.type === "Feature") {
-                        allFeatures.push(item);
-                    }
-                    if (item.type === "FeatureCollection") {
-                        allFeatures.push(...item.features);
-                    }
-                });
-
-                const merged = {
-                    type: "FeatureCollection",
-                    features: allFeatures
-                };
-
-                console.log("Merged GeoJSON:", merged);
-
-                const geoLayer = L.geoJSON(merged, {
-                    style: {
-                        color: "#0033cc",
+        fetch("http://localhost:8080/loadAdminAreas?adminLevel=" + currentAdminLevel + "&threshold=" + adminThreshold)
+        .then(res => res.json())
+        .then(data => {
+            L.geoJSON(data, {
+                style: function (feature) {
+                    return {
+                        color: "blue",
                         weight: 2,
-                        fillColor: "#6699ff",
+                        fillColor: "lightblue",
                         fillOpacity: 0.3
-                    },
-                    onEachFeature: function (feature, layer) {
-                        const props = feature.properties;
-                        let popup = `<b>${props.name || "Unbenannt"}</b><br>
-                                    Admin-Level: ${props.admin_level}<br>
-                                    Boundary: ${props.boundary}`;
-                        layer.bindPopup(popup);
-                    }
-                });
-
-                adminLayer.addLayer(geoLayer);
-            })
+                    };
+                },
+                onEachFeature: function (feature, layer) {
+                  layer.bindPopup(
+                      "Name: " + feature.properties.name + "<br>" +
+                      "ID: " + feature.properties.id
+                  );
+                }
+            }).addTo(adminLayer);
+        });
     }
 
 
@@ -217,6 +211,15 @@
         if (!isNaN(newThreshold) && newThreshold.trim() !== "") {
             buildingThreshold = Number(newThreshold);
             console.log("Threshold:", buildingThreshold);
+        } else {
+            console.log("Keine gültige Zahl!");
+        }
+    }
+
+    function setAdminThreshold(newThreshold) {
+        if (!isNaN(newThreshold) && newThreshold.trim() !== "") {
+            adminThreshold = Number(newThreshold);
+            console.log("Threshold:", adminThreshold);
         } else {
             console.log("Keine gültige Zahl!");
         }

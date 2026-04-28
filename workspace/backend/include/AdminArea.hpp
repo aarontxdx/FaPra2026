@@ -1,15 +1,18 @@
 #pragma once
+
 #include <string>
+#include <vector>
 #include <memory>
-#include <osmium/osm/area.hpp>
 
 #include "Point.hpp"
 
 struct AdminArea
 {
     std::string name;
-    std::string admin_level;
+    int admin_level;
     std::string boundary;
 
     std::vector<std::vector<Point>> area;
+
+    int64_t id;
 };

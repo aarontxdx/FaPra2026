@@ -58,19 +58,68 @@ int main()
                 res.set_header("Access-Control-Allow-Origin", "*");
                 res.set_content(j.dump(), "application/json"); });
 
-    svr.Options("/loadAdminAreas", [&](const httplib::Request &, httplib::Response &res)
-                {
-    res.set_header("Access-Control-Allow-Origin", "*");
-    res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.set_header("Access-Control-Allow-Headers", "Content-Type");
-    res.status = 200; });
-
     svr.Get("/loadAdminAreas", [&](const httplib::Request &req, httplib::Response &res)
             {
                 int adminLevel = 2;
+                int threshold = 10;
+
                 if (req.has_param("adminLevel")) {
                     adminLevel = std::stoi(req.get_param_value("adminLevel"));
-                } });
+                }
+                if (req.has_param("threshold"))
+                {
+                    threshold = std::stoi(req.get_param_value("threshold"));
+                }
+
+                std::ostringstream json;
+                json << R"({"type":"FeatureCollection","features":[)";
+
+                int count = 0;
+
+                for (const auto& adminArea : adminAreas)
+                {
+                    if (adminArea.admin_level != adminLevel) continue;
+
+                    if (count >= threshold) break;
+
+                    json << R"({"type":"Feature","geometry":{"type":"Polygon","coordinates":[)";
+
+                    for (size_t r = 0; r < adminArea.area.size(); ++r)
+                    {
+                        if (r > 0) json << ",";
+
+                        json << "[";
+
+                        for (size_t i = 0; i < adminArea.area[r].size(); ++i)
+                        {
+                            const auto& [lat, lon] = adminArea.area[r][i];
+
+                            // Leaflet/GeoJSON braucht: [lon, lat]
+                            json << "[" << lon << "," << lat << "]";
+
+                            if (i + 1 < adminArea.area[r].size())
+                                json << ",";
+                        }
+
+                        json << "]";
+                    }
+
+                    json << R"(]},"properties":{"id":)"
+                         << adminArea.id
+                         << R"(,"name":")"
+                         << adminArea.name
+                         << R"("}})";
+
+                    count++;
+
+                    if (count < threshold)
+                        json << ",";
+                }
+
+                json << "]}";
+
+                res.set_header("Access-Control-Allow-Origin", "*");
+                res.set_content(json.str(), "application/json"); });
 
     svr.listen("0.0.0.0", 8080);
 }
