@@ -7,17 +7,20 @@ using json = nlohmann::json;
 
 namespace
 {
-    void test()
+    void PreProcessing()
     {
     }
 }
 
 int main()
 {
+    const std::string DATA_REG_STUTTGART = "data/stuttgart-regbez-260409.osm.pbf";
+    const std::string DATA_BW = "data/baden-wuerttemberg-260416.osm.pbf";
+
     std::cout << "Starting server..." << std::endl;
     std::cout << "Loading Buildings..." << std::endl;
     PBFLoader loader;
-    auto [buildings, adminAreas] = loader.extractFile("data/stuttgart-regbez-260409.osm.pbf");
+    auto [buildings, adminAreas, roads] = loader.extractFile(DATA_BW);
     std::cout << "Loading Buildings finished..." << std::endl;
     std::cout << "Preprocessing..." << std::endl;
     std::cout << "Preprocessing finished...." << std::endl;
@@ -76,11 +79,19 @@ int main()
 
                 int count = 0;
 
+                bool first_area = true;
+
                 for (const auto& adminArea : adminAreas)
                 {
                     if (adminArea.admin_level != adminLevel) continue;
 
                     if (count >= threshold) break;
+
+                    if (!first_area) {
+                        json << ",";
+                    } else {
+                        first_area = false;
+                    }
 
                     json << R"({"type":"Feature","geometry":{"type":"Polygon","coordinates":[)";
 
@@ -111,9 +122,6 @@ int main()
                          << R"("}})";
 
                     count++;
-
-                    if (count < threshold)
-                        json << ",";
                 }
 
                 json << "]}";

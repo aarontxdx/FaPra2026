@@ -25,7 +25,8 @@ public:
     inline void area(const osmium::Area &area) noexcept
     {
         const auto &tags = area.tags();
-        if (tags.get_value_by_key("boundary") != std::string("administrative"))
+        if (!tags.has_key("boundary") ||
+            tags.get_value_by_key("boundary") != std::string("administrative"))
             return;
         try
         {

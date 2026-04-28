@@ -6,6 +6,12 @@ out/
 bin/
 lib/
 
+# --- Deps ---
+deps/
+
+# --- Data ---
+data/
+
 # --- CMake generated files ---
 CMakeCache.txt
 CMakeFiles/

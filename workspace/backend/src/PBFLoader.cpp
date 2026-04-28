@@ -5,6 +5,7 @@
 
 #include "AreaHandler.hpp"
 #include "BuildingHandler.hpp"
+#include "RoadHandler.hpp"
 
 #include <osmium/io/any_input.hpp>
 #include <osmium/handler/node_locations_for_ways.hpp>
@@ -20,7 +21,7 @@
 
 using namespace osmium;
 
-std::tuple<std::vector<Building>, std::vector<AdminArea>>
+std::tuple<std::vector<Building>, std::vector<AdminArea>, std::vector<Road>>
 PBFLoader::extractFile(const std::string &path)
 {
     std::cout << "Start load process\n";
@@ -30,6 +31,7 @@ PBFLoader::extractFile(const std::string &path)
 
     std::vector<Building> buildings;
     std::vector<AdminArea> adminAreas;
+    std::vector<Road> roads;
 
     using index_type = osmium::index::map::SparseMemArray<
         osmium::unsigned_object_id_type, osmium::Location>;
@@ -44,13 +46,22 @@ PBFLoader::extractFile(const std::string &path)
 
     BuildingHandler building_handler{buildings};
 
+    RoadHandler road_handler{roads};
+
     // Area-Assembler-Konfiguration
     const osmium::area::Assembler::config_type assembler_config;
 
     // filter
     osmium::TagsFilter filter{false};
     filter.add_rule(true, "boundary", "administrative");
-    filter.add_rule(true, "boundary", "building");
+    filter.add_rule(true, "building", "*");
+    filter.add_rule(true, "highway", "motorway");
+    filter.add_rule(true, "highway", "trunk");
+    filter.add_rule(true, "highway", "primary");
+    filter.add_rule(true, "highway", "secondary");
+    filter.add_rule(true, "highway", "tertiary");
+    filter.add_rule(true, "highway", "residential");
+    filter.add_rule(true, "highway", "unclassified");
 
     // MultipolygonManager
     osmium::area::MultipolygonManager<osmium::area::Assembler> mp_manager{assembler_config, filter};
@@ -63,32 +74,25 @@ PBFLoader::extractFile(const std::string &path)
         std::cerr << "Pass 1 done\n";
     }
 
-    // Output the amount of main memory used so far. All multipolygon relations
-    // are in memory now.
-    std::cerr << "Memory:\n";
-    osmium::relations::print_used_memory(std::cerr, mp_manager.used_memory());
-
     // 2. Pass: Ways + Areas + NodeLocations + Dispatcher
     {
         std::cerr << "Pass 2...\n";
         osmium::io::Reader reader{path};
-        osmium::apply(reader, location_handler, building_handler, mp_manager.handler([&area_handler](osmium::memory::Buffer &&buffer)
-                                                                                     { osmium::apply(buffer, area_handler); }));
+        osmium::apply(reader, location_handler, building_handler, road_handler,
+                      mp_manager.handler([&area_handler](osmium::memory::Buffer &&buffer)
+                                         { osmium::apply(buffer, area_handler); }));
         reader.close();
         std::cerr << "Pass 2 done\n";
     }
-
-    // print used Memory so far
-    std::cerr << "Memory:\n";
-    osmium::relations::print_used_memory(std::cerr, mp_manager.used_memory());
 
     auto endTime = std::chrono::steady_clock::now();
     auto applyDuration =
         std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
 
     std::cout << "Load process finished! \nBuildings: " << buildings.size() << "\n"
-              << "Areas: " << adminAreas.size() << "\n";
+              << "Areas: " << adminAreas.size() << "\n"
+              << "Roads: " << roads.size() << "\n";
     std::cout << "Total Load Time: " << applyDuration.count() << " s\n";
 
-    return {buildings, adminAreas};
+    return {buildings, adminAreas, roads};
 }
