@@ -1,0 +1,74 @@
+# --- Build directories ---
+build/
+build-*/
+cmake-build-*/
+out/
+bin/
+lib/
+
+# --- CMake generated files ---
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+CTestTestfile.cmake
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+Testing/
+
+# --- Ninja ---
+.ninja_deps
+.ninja_log
+
+# --- Make ---
+Makefile
+
+# --- Visual Studio ---
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.pdb
+*.ilk
+*.obj
+*.idb
+*.tlog/
+*.log
+*.cachefile
+*.lastbuildstate
+*.user
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# --- Visual Studio Code ---
+.vscode/
+*.code-workspace
+
+# --- CLion / JetBrains ---
+.idea/
+*.iml
+
+# --- OS-specific ---
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# --- General temporary files ---
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# --- Generated binaries ---
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib

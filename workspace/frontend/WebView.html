@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Buildings Map</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <style>
+        #map {
+            height: 90vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+<button onclick="loadBuildings()">Buildings laden</button>
+
+<script>
+    // Karte initialisieren (Stuttgart)
+    const map = L.map('map').setView([48.7758, 9.1829], 13);
+
+    // OpenStreetMap Layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+    }).addTo(map);
+
+    // Funktion, die erst beim Klick ausgeführt wird
+    function loadBuildings() {
+        fetch("http://localhost:8080/loadBuildings")
+            .then(res => res.json())
+            .then(data => {
+                data.forEach(b => {
+                    const [lon, lat] = b.centroid;
+
+                    const marker = L.circleMarker([lat, lon], {
+                        radius: 4,
+                        color: "red",
+                        fillColor: "red",
+                        fillOpacity: 0.8
+                    }).addTo(map);
+
+                    marker.bindPopup(`
+                        <b>${b.name || "Building"}</b><br>
+                        ${b.street || ""} ${b.housenumber || ""}<br>
+                        ${b.postcode || ""} ${b.city || ""}<br>
+                        ${b.country || ""}
+                    `);
+                });
+            });
+    }
+</script>
+
+
+</body>
+</html>
