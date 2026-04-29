@@ -12,15 +12,26 @@ namespace
     }
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+    std::string pbf_file;
+
     const std::string DATA_REG_STUTTGART = "data/stuttgart-regbez-260409.osm.pbf";
     const std::string DATA_BW = "data/baden-wuerttemberg-260416.osm.pbf";
+
+    if (argc > 1)
+    {
+        pbf_file = argv[1];
+    }
+    else
+    {
+        pbf_file = DATA_BW;
+    };
 
     std::cout << "Starting server..." << std::endl;
     std::cout << "Loading Buildings..." << std::endl;
     PBFLoader loader;
-    auto [buildings, adminAreas, roads] = loader.extractFile(DATA_BW);
+    auto [buildings, adminAreas, roads] = loader.extractFile(pbf_file);
     std::cout << "\nLoading Buildings finished...\n\n\n";
     std::cout << "Preprocessing..." << std::endl;
     std::cout << "Preprocessing finished....\n"
