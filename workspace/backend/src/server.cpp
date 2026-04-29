@@ -20,7 +20,7 @@ int main()
     std::cout << "Starting server..." << std::endl;
     std::cout << "Loading Buildings..." << std::endl;
     PBFLoader loader;
-    auto [buildings, adminAreas, roads] = loader.extractFile(DATA_REG_STUTTGART);
+    auto [buildings, adminAreas, roads] = loader.extractFile(DATA_BW);
     std::cout << "\nLoading Buildings finished...\n\n\n";
     std::cout << "Preprocessing..." << std::endl;
     std::cout << "Preprocessing finished....\n"

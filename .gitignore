@@ -6,9 +6,6 @@ out/
 bin/
 lib/
 
-# --- Deps ---
-deps/
-
 # --- Data ---
 data/
 
