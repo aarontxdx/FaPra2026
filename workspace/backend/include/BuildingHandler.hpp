@@ -37,7 +37,7 @@ public:
             return;
 
         Building b;
-        b.centroid = utilfunctions::computeCentroid(poly);
+        b.centroid = helper::computeCentroid(poly);
 
         b.housenumber = tags.get_value_by_key("addr:housenumber", "");
         b.street = tags.get_value_by_key("addr:street", "");

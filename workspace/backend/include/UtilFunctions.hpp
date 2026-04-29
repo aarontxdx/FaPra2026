@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-namespace utilfunctions
+namespace helper
 {
     inline Point computeCentroid(const std::vector<Point> &poly)
     {
@@ -31,7 +31,7 @@ namespace utilfunctions
 
         A *= 0.5;
 
-        if (A == 0.0)
+        if (std::abs(A) < 1e-12)
         {
             double sx = 0.0, sy = 0.0;
             for (auto &p : poly)

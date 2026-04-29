@@ -102,7 +102,7 @@ PBFLoader::extractFile(const std::string &path)
 
     // 1. Pass: Relationen sammeln
     {
-        std::cerr << "Pass 1 (realtions)...\n";
+        std::cerr << "Pass 1 (relations)...\n";
         auto input_file = osmium::io::File{path};
         osmium::relations::read_relations(input_file, mp_manager);
         std::cerr << "Pass 1 done\n";
