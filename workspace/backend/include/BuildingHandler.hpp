@@ -17,7 +17,7 @@ public:
     {
         const auto &tags = way.tags();
 
-        if (!tags.has_key("building") || !tags.has_key("addr:housenumber"))
+        if (!tags.has_key("building"))
             return;
 
         if (!way.is_closed())
@@ -30,14 +30,18 @@ public:
         {
             if (!n.location().valid())
                 return;
-            poly.push_back({n.location().lon(), n.location().lat()});
+
+            poly.emplace_back(n.location().lon(), n.location().lat());
         }
 
         if (poly.size() < 4)
             return;
 
         Building b;
-        b.centroid = helper::computeCentroid(poly);
+
+        b.polygon = std::move(poly);
+
+        b.centroid = helper::computeCentroid(b.polygon);
 
         b.housenumber = tags.get_value_by_key("addr:housenumber", "");
         b.street = tags.get_value_by_key("addr:street", "");
@@ -47,12 +51,34 @@ public:
 
         if (tags.has_key("name:de"))
             b.name = tags.get_value_by_key("name:de");
-        else if (tags.has_key("name"))
-            b.name = tags.get_value_by_key("name");
+        else
+            b.name = tags.get_value_by_key("name", "");
 
         buildings.push_back(std::move(b));
     }
 
+    void node(const osmium::Node &node) noexcept
+    {
+        const auto &tags = node.tags();
+
+        if (!tags.has_key("addr:housenumber"))
+            return;
+
+        if (!node.location().valid())
+            return;
+
+        AddressNode a;
+        a.location = {node.location().lon(), node.location().lat()};
+        a.housenumber = tags.get_value_by_key("addr:housenumber", "");
+        a.street = tags.get_value_by_key("addr:street", "");
+        a.postcode = tags.get_value_by_key("addr:postcode", "");
+        a.city = tags.get_value_by_key("addr:city", "");
+        a.country = tags.get_value_by_key("addr:country", "");
+
+        addressNodes.push_back(std::move(a));
+    }
+
 private:
     std::vector<Building> &buildings;
+    std::vector<AddressNode> addressNodes;
 };

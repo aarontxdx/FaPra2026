@@ -6,7 +6,7 @@
 
 struct AddressNode
 {
-    Point geom;
+    Point location;
 
     std::string housenumber;
     std::string street;

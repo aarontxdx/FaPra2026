@@ -1,0 +1,35 @@
+#include "PreProcessingUnit.hpp"
+
+#include <boost/geometry.hpp>
+
+namespace
+{
+    namespace bg = boost::geometry;
+
+    using BoostPoint = bg::model::point<double, 2, bg::cs::cartesian>;
+
+    BoostPoint representativePoint(const std::vector<Point> &poly)
+    {
+        namespace bg = boost::geometry;
+
+        bg::model::polygon<BoostPoint> polygon;
+
+        for (const auto &p : poly)
+            bg::append(polygon.outer(), BoostPoint(p.x, p.y));
+
+        bg::correct(polygon);
+
+        BoostPoint result;
+        bg::point_on_surface(polygon, result);
+
+        return result;
+    }
+}
+
+void PreProcessingUnit::preprocessBuildings(std::vector<Building> &buildings)
+{
+    for (auto &building : buildings)
+    {
+        building.centroid = representativePoint(building.polygon);
+    }
+}

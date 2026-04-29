@@ -52,15 +52,28 @@ public:
 
             for (const auto &outer : area.outer_rings())
             {
-                std::vector<Point> ring;
+                std::vector<Point> outerRing;
 
                 for (const auto &n : outer)
                 {
                     const auto &loc = n.location();
-                    ring.emplace_back(loc.lat(), loc.lon());
+                    outerRing.emplace_back(loc.lat(), loc.lon());
                 }
 
-                admin.area.push_back(std::move(ring));
+                admin.area.push_back(std::move(outerRing));
+
+                for (const auto &inner : area.inner_rings(outer))
+                {
+                    std::vector<Point> innerRing;
+
+                    for (const auto &n : inner)
+                    {
+                        const auto &loc = n.location();
+                        innerRing.emplace_back(loc.lat(), loc.lon());
+                    }
+
+                    admin.area.push_back(std::move(innerRing));
+                }
             }
 
             adminAreas->push_back(std::move(admin));

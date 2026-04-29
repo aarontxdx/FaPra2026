@@ -1,5 +1,6 @@
 #include <httplib.h>
 #include "PBFLoader.hpp"
+#include "PreProcessingUnit.hpp"
 #include <json.hpp>
 #include <iostream>
 
@@ -7,8 +8,22 @@ using json = nlohmann::json;
 
 namespace
 {
-    void PreProcessing()
+    double ringArea(const std::vector<Point> &ring)
     {
+        double sum = 0.0;
+        for (size_t i = 0; i < ring.size(); ++i)
+        {
+            auto [x1, y1] = ring[i];
+            auto [x2, y2] = ring[(i + 1) % ring.size()];
+            sum += (x2 - x1) * (y2 + y1);
+        }
+        return sum;
+    }
+
+    // >0 = CW, <0 = CCW (je nach Formel – ggf. testen!)
+    bool isClockwise(const std::vector<Point> &ring)
+    {
+        return ringArea(ring) > 0;
     }
 }
 
@@ -34,6 +49,7 @@ int main(int argc, char *argv[])
     auto [buildings, adminAreas, roads] = loader.extractFile(pbf_file);
     std::cout << "\nLoading Buildings finished...\n\n\n";
     std::cout << "Preprocessing..." << std::endl;
+    PreProcessingUnit preprocessing;
     std::cout << "Preprocessing finished....\n"
               << std::endl;
 
@@ -150,17 +166,21 @@ int main(int argc, char *argv[])
                     {
                         if (r > 0) json << ",";
 
+                        auto ring = adminArea.area[r];
+
+                        bool shouldBeClockwise = (r != 0); // Löcher = CW
+                        if (isClockwise(ring) != shouldBeClockwise)
+                        {
+                            std::reverse(ring.begin(), ring.end());
+                        }
+
                         json << "[";
 
-                        for (size_t i = 0; i < adminArea.area[r].size(); ++i)
+                        for (size_t i = 0; i < ring.size(); ++i)
                         {
-                            const auto& [lat, lon] = adminArea.area[r][i];
-
-                            // Leaflet/GeoJSON braucht: [lon, lat]
+                            const auto& [lat, lon] = ring[i];
                             json << "[" << lon << "," << lat << "]";
-
-                            if (i + 1 < adminArea.area[r].size())
-                                json << ",";
+                            if (i + 1 < ring.size()) json << ",";
                         }
 
                         json << "]";

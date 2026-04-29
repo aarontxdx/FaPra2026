@@ -6,6 +6,7 @@
 
 struct Building
 {
+    std::vector<Point> polygon;
     Point centroid;
 
     std::string housenumber;
