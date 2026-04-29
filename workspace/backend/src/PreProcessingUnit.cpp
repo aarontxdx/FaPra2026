@@ -31,7 +31,6 @@ void PreProcessingUnit::preprocessBuildings(std::vector<Building> &buildings)
 {
     for (auto &building : buildings)
     {
-        auto boostPoint = representativePoint(building.polygon);
-        building.centroid =
+        building.centroid = representativePoint(building.polygon);
     }
 }
