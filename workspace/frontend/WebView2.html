@@ -154,7 +154,15 @@
     function loadBuildings() {
         buildingLayer.clearLayers();
 
-        fetch("http://localhost:8080/loadBuildings?threshold=" + buildingThreshold)
+        const bounds = map.getBounds();
+
+        const minLat = bounds.getSouth();
+        const maxLat = bounds.getNorth();
+        const minLon = bounds.getWest();
+        const maxLon = bounds.getEast();
+
+        fetch(`http://localhost:8080/loadBuildings?threshold=${buildingThreshold}`
+            + `&minLat=${minLat}&minLon=${minLon}&maxLat=${maxLat}&maxLon=${maxLon}`)
             .then(res => res.json())
             .then(data => {
                 data.forEach(b => {

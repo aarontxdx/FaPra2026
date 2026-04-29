@@ -17,7 +17,7 @@ public:
     {
         const auto &tags = way.tags();
 
-        if (!tags.has_key("building"))
+        if (!tags.has_key("building") || !tags.has_key("addr:housenumber"))
             return;
 
         if (!way.is_closed())

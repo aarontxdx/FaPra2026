@@ -7,6 +7,8 @@
 #include "BuildingHandler.hpp"
 #include "RoadHandler.hpp"
 
+#include "MemoryUsageHelper.hpp"
+
 #include <osmium/io/any_input.hpp>
 #include <osmium/handler/node_locations_for_ways.hpp>
 #include <osmium/index/map/sparse_mem_array.hpp>
@@ -21,9 +23,41 @@
 
 using namespace osmium;
 
+namespace
+{
+    void printMemoryUsage(std::vector<Building> &buildings, std::vector<AdminArea> &adminAreas, std::vector<Road> &roads)
+    {
+        size_t totalBuildings = 0;
+        size_t totalAdminAreas = 0;
+        size_t totalRoads = 0;
+
+        // Buildings
+        for (const auto &b : buildings)
+            totalBuildings += helper::memoryUsage(b);
+
+        // AdminAreas
+        for (const auto &a : adminAreas)
+            totalAdminAreas += helper::memoryUsage(a);
+
+        // Roads
+        for (const auto &r : roads)
+            totalRoads += helper::memoryUsage(r);
+
+        std::cout << "Buildings: " << buildings.size() << "\n"
+                  << "Areas: " << adminAreas.size() << "\n"
+                  << "Roads: " << roads.size() << "\n\n"
+                  << "Memory usage:\n"
+                  << "Buildings: " << totalBuildings / (1024.0 * 1024.0) << " MB\n"
+                  << "Admin areas: " << totalAdminAreas / (1024.0 * 1024.0) << " MB\n"
+                  << "Roads: " << totalRoads / (1024.0 * 1024.0) << " MB\n\n";
+    }
+}
+
 std::tuple<std::vector<Building>, std::vector<AdminArea>, std::vector<Road>>
 PBFLoader::extractFile(const std::string &path)
 {
+    const bool DEBUG_MODE = true;
+
     std::cout << "Start load process\n";
     std::cout << LIBOSMIUM_VERSION_STRING << "\n";
 
@@ -68,7 +102,7 @@ PBFLoader::extractFile(const std::string &path)
 
     // 1. Pass: Relationen sammeln
     {
-        std::cerr << "Pass 1...\n";
+        std::cerr << "Pass 1 (realtions)...\n";
         auto input_file = osmium::io::File{path};
         osmium::relations::read_relations(input_file, mp_manager);
         std::cerr << "Pass 1 done\n";
@@ -76,23 +110,26 @@ PBFLoader::extractFile(const std::string &path)
 
     // 2. Pass: Ways + Areas + NodeLocations + Dispatcher
     {
-        std::cerr << "Pass 2...\n";
+        std::cerr << "Pass 2 (mp_manager, buildings, roads)...\n";
         osmium::io::Reader reader{path};
         osmium::apply(reader, location_handler, building_handler, road_handler,
                       mp_manager.handler([&area_handler](osmium::memory::Buffer &&buffer)
                                          { osmium::apply(buffer, area_handler); }));
         reader.close();
-        std::cerr << "Pass 2 done\n";
+        std::cerr << "Pass 2 done\n\n";
     }
 
     auto endTime = std::chrono::steady_clock::now();
     auto applyDuration =
         std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
 
-    std::cout << "Load process finished! \nBuildings: " << buildings.size() << "\n"
-              << "Areas: " << adminAreas.size() << "\n"
-              << "Roads: " << roads.size() << "\n";
-    std::cout << "Total Load Time: " << applyDuration.count() << " s\n";
+    if (DEBUG_MODE)
+    {
+        printMemoryUsage(buildings, adminAreas, roads);
+    }
+
+    std::cout << "Load process finished! \n\n";
+    std::cout << "Total Load Time: " << applyDuration.count() << " s\n\n";
 
     return {buildings, adminAreas, roads};
 }
