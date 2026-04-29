@@ -1,6 +1,7 @@
 #include "PreProcessingUnit.hpp"
 
 #include <boost/geometry.hpp>
+#include <boost/geometry/algorithms/point_on_surface.hpp>
 
 namespace
 {
