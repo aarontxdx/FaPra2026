@@ -9,7 +9,7 @@ namespace
 
     using BoostPoint = bg::model::point<double, 2, bg::cs::cartesian>;
 
-    BoostPoint representativePoint(const std::vector<Point> &poly)
+    Point representativePoint(const std::vector<Point> &poly)
     {
         namespace bg = boost::geometry;
 
@@ -23,7 +23,7 @@ namespace
         BoostPoint result;
         bg::point_on_surface(polygon, result);
 
-        return result;
+        return {result.get<0>(), result.get<1>()};
     }
 }
 
@@ -31,6 +31,7 @@ void PreProcessingUnit::preprocessBuildings(std::vector<Building> &buildings)
 {
     for (auto &building : buildings)
     {
-        building.centroid = representativePoint(building.polygon);
+        auto boostPoint = representativePoint(building.polygon);
+        building.centroid =
     }
 }
