@@ -59,7 +59,6 @@ PBFLoader::extractFile(const std::string &path)
     const bool DEBUG_MODE = true;
 
     std::cout << "Start load process\n";
-    std::cout << LIBOSMIUM_VERSION_STRING << "\n";
 
     auto startTime = std::chrono::steady_clock::now();
 
