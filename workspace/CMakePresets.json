@@ -10,5 +10,12 @@
         "CMAKE_TOOLCHAIN_FILE": "C:/Users/Aaron Paulus/vcpkg/scripts/buildsystems/vcpkg.cmake"
       }
     }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc",
+      "configuration": "Release"
+    }
   ]
 }
