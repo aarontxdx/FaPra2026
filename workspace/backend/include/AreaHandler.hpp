@@ -81,12 +81,4 @@ private:
         return tags.has_key("boundary") &&
                std::string(tags.get_value_by_key("boundary")) == "administrative";
     }
-
-    inline Point parse_point(const std::string::iterator::value_type &coord_str)
-    {
-        std::istringstream ss(coord_str);
-        Point pt;
-        ss >> pt.x >> pt.y;
-        return pt;
-    }
 };
