@@ -64,14 +64,18 @@
         <input type="checkbox" id="showAdminAreas">
         Show Administrtion Areas
       </label>
+      <label><br>
+        <input type="checkbox" id="showStreets">
+        Show streets
+      </label><br>
     </section>
 
     <section>
       <h3>Settings</h3>
 
       <!-- Building -->
-      <label>Building threshold:</label>
-      <input type="text" id="thresholdInput" placeholder="threshold" size="16">
+      <label>Building threshold:</label><br>
+      <input type="text" id="thresholdInput" placeholder="Building threshold">
       <button onclick="setThreshold(document.getElementById('thresholdInput').value)">
         Set building threshold
       </button>
@@ -79,9 +83,18 @@
       <br><br>
 
       <!-- AdminAreas -->
-      <label>Admin threshold:</label>
-      <input type="text" id="adminThresholdInput" placeholder="Admin area threshold" size="17">
+      <label>Admin threshold:</label><br>
+      <input type="text" id="adminThresholdInput" placeholder="Admin area threshold">
       <button onclick="setAdminThreshold(document.getElementById('adminThresholdInput').value)">
+        Set admin threshold
+      </button>
+
+      <br><br>
+
+      <!-- Roads -->
+      <label>Road threshold:</label><br>
+      <input type="text" id="roadThresholdInput" placeholder="Road threshold">
+      <button onclick="setRoadThreshold(document.getElementById('roadThresholdInput').value)">
         Set admin threshold
       </button>
 
@@ -107,15 +120,19 @@
     const map = L.map('map').setView([48.7758, 9.1829], 13);
     var buildingThreshold = 1000;
     var adminThreshold = 10;
+    var roadThreshold = 10000
+
     var currentAdminLevel = 2;
 
     const buildingLayer = L.layerGroup();
     const adminLayer = L.layerGroup();
+    const streetLayer = L.layerGroup();
 
     const slider = document.getElementById("adminSlider");
     const adminLabel = document.getElementById("adminLabel");
     const buildingCheckBox = document.getElementById("showBuildings");
     const adminAreaCheckBox = document.getElementById("showAdminAreas")
+    const streetCheckBox = document.getElementById("showStreets");
 
     const adminLevels = [
     { level: 2,  name: "Land" },
@@ -146,6 +163,15 @@
             loadAdminAreas();
         } else {
             map.removeLayer(adminLayer);
+        }
+    });
+
+    streetCheckBox.addEventListener("change", (e) => {
+        if (e.target.checked) {
+            map.addLayer(streetLayer);
+            loadStreets();
+        } else {
+            map.removeLayer(streetLayer);
         }
     });
 
@@ -192,7 +218,8 @@
         // Layer leeren (wichtig: Klammern!)
         adminLayer.clearLayers();
 
-        fetch("http://localhost:8080/loadAdminAreas?adminLevel=" + currentAdminLevel + "&threshold=" + adminThreshold)
+        fetch("http://localhost:8080/loadAdminAreas?adminLevel=" + currentAdminLevel 
+              + "&threshold=" + adminThreshold)
         .then(res => res.json())
         .then(data => {
             L.geoJSON(data, {
@@ -214,6 +241,46 @@
         });
     }
 
+    function loadStreets() {
+        streetLayer.clearLayers();
+
+        const bounds = map.getBounds();
+
+        const minLat = bounds.getSouth();
+        const maxLat = bounds.getNorth();
+        const minLon = bounds.getWest();
+        const maxLon = bounds.getEast();
+
+        fetch(`http://localhost:8080/loadStreets?threshold=${roadThreshold}`
+            + `&minLat=${minLat}&minLon=${minLon}`
+            + `&maxLat=${maxLat}&maxLon=${maxLon}`)
+            .then(res => res.json())
+            .then(data => {
+
+                L.geoJSON(data, {
+                    style: function(feature) {
+                        switch (feature.properties.type) {
+                            case "motorway": return { color: "red", weight: 5 };
+                            case "primary": return { color: "orange", weight: 4 };
+                            case "secondary": return { color: "yellow", weight: 3 };
+                            case "residential": return { color: "gray", weight: 2 };
+                            default: return { color: "black", weight: 1 };
+                        }
+                    },
+
+                    onEachFeature: function(feature, layer) {
+                        layer.bindPopup(
+                            `<b>${feature.properties.name || "Unknown road"}</b><br>
+                            Type: ${feature.properties.type}<br>
+                            ID: ${feature.properties.id}`
+                        );
+                    }
+
+                }).addTo(streetLayer);
+
+            });
+    }
+
 
     function setThreshold(newThreshold) {
         if (!isNaN(newThreshold) && newThreshold.trim() !== "") {
@@ -233,6 +300,15 @@
         }
     }
 
+    function setRoadThreshold(newThreshold) {
+        if (!isNaN(newThreshold) && newThreshold.trim() !== "") {
+            roadThreshold = Number(newThreshold);
+            console.log("Threshold:", roadThreshold);
+        } else {
+            console.log("Keine gültige Zahl!");
+        }
+    }
+
     function updateAdminLevel() {
         const index = Number(slider.value);
         const entry = adminLevels[index];
@@ -241,7 +317,7 @@
         adminLabel.textContent = `${entry.name} (admin_level=${entry.level})`;
     }
 
-    updateAdminLabel();
+    updateAdminLevel();
   </script>
 
 </body>

@@ -57,28 +57,6 @@ public:
         buildings.push_back(std::move(b));
     }
 
-    void node(const osmium::Node &node) noexcept
-    {
-        const auto &tags = node.tags();
-
-        if (!tags.has_key("addr:housenumber"))
-            return;
-
-        if (!node.location().valid())
-            return;
-
-        AddressNode a;
-        a.location = {node.location().lon(), node.location().lat()};
-        a.housenumber = tags.get_value_by_key("addr:housenumber", "");
-        a.street = tags.get_value_by_key("addr:street", "");
-        a.postcode = tags.get_value_by_key("addr:postcode", "");
-        a.city = tags.get_value_by_key("addr:city", "");
-        a.country = tags.get_value_by_key("addr:country", "");
-
-        addressNodes.push_back(std::move(a));
-    }
-
 private:
     std::vector<Building> &buildings;
-    std::vector<AddressNode> addressNodes;
 };

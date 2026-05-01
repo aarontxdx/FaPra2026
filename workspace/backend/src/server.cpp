@@ -5,6 +5,7 @@
 #include <iostream>
 
 using json = nlohmann::json;
+using namespace geocoder::objects;
 
 namespace
 {
@@ -47,9 +48,10 @@ int main(int argc, char *argv[])
     std::cout << "Loading Buildings..." << std::endl;
     PBFLoader loader;
     auto [buildings, adminAreas, roads] = loader.extractFile(pbf_file);
-    std::cout << "\nLoading Buildings finished...\n\n\n";
+    std::cout << "\nLoading Buildings finished...\n\n";
     std::cout << "Preprocessing..." << std::endl;
     PreProcessingUnit preprocessing;
+    preprocessing.preprocessBuildings(buildings);
     std::cout << "Preprocessing finished....\n"
               << std::endl;
 
@@ -199,6 +201,82 @@ int main(int argc, char *argv[])
 
                 res.set_header("Access-Control-Allow-Origin", "*");
                 res.set_content(json.str(), "application/json"); });
+
+    svr.Get("/loadStreets", [&](const httplib::Request &req, httplib::Response &res)
+            {
+                if (!req.has_param("minLat") || !req.has_param("minLon") ||
+                    !req.has_param("maxLat") || !req.has_param("maxLon"))
+                {
+                    res.status = 400;
+                    res.set_content("Missing bbox parameters", "text/plain");
+                    return;
+                }
+
+                double minLat = std::stod(req.get_param_value("minLat"));
+                double minLon = std::stod(req.get_param_value("minLon"));
+                double maxLat = std::stod(req.get_param_value("maxLat"));
+                double maxLon = std::stod(req.get_param_value("maxLon"));   
+
+                int threshold = 1000;
+                if (req.has_param("threshold"))
+                {
+                    threshold = std::stoi(req.get_param_value("threshold"));
+                }
+
+                json j;
+                j["type"] = "FeatureCollection";
+                j["features"] = json::array();
+
+                int count = 0;
+
+                for (const auto &s : roads)
+                {
+                    bool inside = false;
+
+                    for (const auto &p : s.nodes)
+                    {
+                        if (p.y >= minLat && p.y <= maxLat &&
+                            p.x >= minLon && p.x <= maxLon)
+                        {
+                            inside = true;
+                            break;
+                        }
+                    }
+
+                    if (!inside) continue;
+
+                    json feature;
+                    feature["type"] = "Feature";
+
+                    // Geometrie
+                    json coords = json::array();
+                    for (const auto &p : s.nodes)
+                    {
+                        coords.push_back({p.x, p.y}); // [lon, lat]
+                    }
+
+                    feature["geometry"] = {
+                        {"type", "LineString"},
+                        {"coordinates", coords}
+                    };
+
+                    // Eigenschaften
+                    feature["properties"] = {
+                        {"name", s.name},
+                        {"type", toString(s.type)},
+                        {"id", s.id}
+                    };
+
+                    j["features"].push_back(feature);
+
+                    if (++count >= threshold)
+                        break;
+                }
+
+                std::cout << "Writing streets json finished" << std::endl;
+
+                res.set_header("Access-Control-Allow-Origin", "*");
+                res.set_content(j.dump(), "application/json"); });
 
     svr.listen("0.0.0.0", 8080);
 }

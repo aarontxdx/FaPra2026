@@ -23,36 +23,6 @@
 
 using namespace osmium;
 
-namespace
-{
-    void printMemoryUsage(std::vector<Building> &buildings, std::vector<AdminArea> &adminAreas, std::vector<Road> &roads)
-    {
-        size_t totalBuildings = 0;
-        size_t totalAdminAreas = 0;
-        size_t totalRoads = 0;
-
-        // Buildings
-        for (const auto &b : buildings)
-            totalBuildings += helper::memoryUsage(b);
-
-        // AdminAreas
-        for (const auto &a : adminAreas)
-            totalAdminAreas += helper::memoryUsage(a);
-
-        // Roads
-        for (const auto &r : roads)
-            totalRoads += helper::memoryUsage(r);
-
-        std::cout << "Buildings: " << buildings.size() << "\n"
-                  << "Areas: " << adminAreas.size() << "\n"
-                  << "Roads: " << roads.size() << "\n\n"
-                  << "Memory usage:\n"
-                  << "Buildings: " << totalBuildings / (1024.0 * 1024.0) << " MB\n"
-                  << "Admin areas: " << totalAdminAreas / (1024.0 * 1024.0) << " MB\n"
-                  << "Roads: " << totalRoads / (1024.0 * 1024.0) << " MB\n\n";
-    }
-}
-
 std::tuple<std::vector<Building>, std::vector<AdminArea>, std::vector<Road>>
 PBFLoader::extractFile(const std::string &path)
 {
@@ -124,7 +94,7 @@ PBFLoader::extractFile(const std::string &path)
 
     if (DEBUG_MODE)
     {
-        printMemoryUsage(buildings, adminAreas, roads);
+        helper::printMemoryUsage(buildings, adminAreas, roads);
     }
 
     std::cout << "Load process finished! \n\n";

@@ -1,5 +1,7 @@
 #include "PreProcessingUnit.hpp"
 
+#include "MemoryUsageHelper.hpp"
+
 #include <boost/geometry.hpp>
 #include <boost/geometry/algorithms/point_on_surface.hpp>
 
@@ -29,8 +31,13 @@ namespace
 
 void PreProcessingUnit::preprocessBuildings(std::vector<Building> &buildings)
 {
+    helper::printMemoryUsageBuildings(buildings, "Memory of Buildings before Preprocessing:");
+
     for (auto &building : buildings)
     {
         building.centroid = representativePoint(building.polygon);
+        building.polygon.clear();
     }
+
+    helper::printMemoryUsageBuildings(buildings, "Memory of Buildings after Preprocessing:");
 }

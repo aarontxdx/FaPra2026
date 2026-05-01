@@ -24,6 +24,13 @@ public:
             road.name = tags.get_value_by_key("name:de");
         else if (tags.has_key("name"))
             road.name = tags.get_value_by_key("name", "");
+        if (tags.has_key("highway"))
+        {
+            std::string tag = way.tags()["highway"];
+            road.type = parseRoadType(tag);
+        }
+
+        road.id = way.id();
 
         for (const auto &n : way.nodes())
         {
@@ -37,4 +44,24 @@ public:
 
 private:
     std::vector<Road> &roads;
+
+    RoadType parseRoadType(const std::string &t)
+    {
+        if (t == "motorway")
+            return RoadType::Motorway;
+        if (t == "trunk")
+            return RoadType::Trunk;
+        if (t == "primary")
+            return RoadType::Primary;
+        if (t == "secondary")
+            return RoadType::Secondary;
+        if (t == "tertiary")
+            return RoadType::Tertiary;
+        if (t == "residential")
+            return RoadType::Residential;
+        if (t == "unclassified")
+            return RoadType::Unclassified;
+
+        return RoadType::Unknown;
+    }
 };
