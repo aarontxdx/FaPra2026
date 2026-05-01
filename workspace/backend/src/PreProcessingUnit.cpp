@@ -37,7 +37,17 @@ void PreProcessingUnit::preprocessBuildings(std::vector<Building> &buildings)
     {
         building.centroid = representativePoint(building.polygon);
         building.polygon.clear();
+        building.polygon.shrink_to_fit();
     }
 
     helper::printMemoryUsageBuildings(buildings, "Memory of Buildings after Preprocessing:");
+}
+
+void PreProcessingUnit::preprocessRoads(std::vector<Road> &roads)
+{
+    helper::printMemoryUsageRoads(roads, "Memory of Roads before Preprocessing:");
+
+    // TODO: implement preprocessing
+
+    helper::printMemoryUsageRoads(roads, "Memory of Roads after Preprocessing:");
 }

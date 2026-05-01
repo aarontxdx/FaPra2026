@@ -46,13 +46,19 @@ int main(int argc, char *argv[])
 
     std::cout << "Starting server..." << std::endl;
     std::cout << "Loading Buildings..." << std::endl;
+
     PBFLoader loader;
     auto [buildings, adminAreas, roads] = loader.extractFile(pbf_file);
+
     std::cout << "\nLoading Buildings finished...\n\n";
+
     std::cout << "Preprocessing..." << std::endl;
+
     PreProcessingUnit preprocessing;
     preprocessing.preprocessBuildings(buildings);
-    std::cout << "Preprocessing finished....\n"
+    preprocessing.preprocessRoads(roads);
+
+    std::cout << "\nPreprocessing finished....\n"
               << std::endl;
 
     httplib::Server svr;

@@ -15,14 +15,16 @@ namespace helper
     {
         size_t size = sizeof(b);
 
-        size += b.housenumber.size();
-        size += b.street.size();
-        size += b.postcode.size();
-        size += b.city.size();
-        size += b.country.size();
-        size += b.name.size();
+        size += b.housenumber.capacity();
+        size += b.street.capacity();
+        size += b.postcode.capacity();
+        size += b.city.capacity();
+        size += b.country.capacity();
+        size += b.name.capacity();
 
-        size += b.polygon.size() * sizeof(Point);
+        size += b.polygon.capacity() * sizeof(Point);
+
+        size += sizeof(b.centroid);
 
         return size;
     }
@@ -31,12 +33,14 @@ namespace helper
     {
         size_t size = sizeof(a);
 
-        size += a.name.size();
-        size += a.boundary.size();
+        size += a.name.capacity();
+        size += a.boundary.capacity();
+
+        size += a.area.capacity() * sizeof(std::vector<Point>);
 
         for (const auto &ring : a.area)
         {
-            size += ring.size() * sizeof(Point);
+            size += ring.capacity() * sizeof(Point);
         }
 
         return size;
@@ -46,8 +50,9 @@ namespace helper
     {
         size_t size = sizeof(r);
 
-        size += r.name.size();
-        size += r.nodes.size() * sizeof(Point);
+        size += r.name.capacity();
+
+        size += r.nodes.capacity() * sizeof(Point);
 
         return size;
     }
@@ -86,7 +91,20 @@ namespace helper
         for (const auto &b : buildings)
             totalMemory += memoryUsage(b);
 
-        std::cout << message << "\nBuildings: " << buildings.size() << "\n"
+        std::cout << "\n"
+                  << message << "\nBuildings: " << buildings.size() << "\n"
                   << "Buildings: " << totalMemory / (1024.0 * 1024.0) << " MB\n";
+    }
+
+    inline void printMemoryUsageRoads(std::vector<Road> &roads, const std::string &message)
+    {
+        size_t totalMemory = 0;
+
+        for (const auto &r : roads)
+            totalMemory += memoryUsage(r);
+
+        std::cout << "\n"
+                  << message << "\nRoads: " << roads.size() << "\n"
+                  << "Roads: " << totalMemory / (1024.0 * 1024.0) << " MB\n";
     }
 }
