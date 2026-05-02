@@ -56,6 +56,8 @@ int main(int argc, char *argv[])
 
     PreProcessingUnit preprocessing;
     preprocessing.preprocessBuildings(buildings);
+
+    // not working right now
     preprocessing.preprocessRoads(roads);
 
     std::cout << "\nPreprocessing finished....\n"
