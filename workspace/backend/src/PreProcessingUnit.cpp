@@ -71,56 +71,54 @@ void PreProcessingUnit::preprocessRoads(std::vector<Road> &roads)
     roads.clear();
 
     // --------------------------------------------------
-    // 2. Gruppieren nach (name, type)
+    // 2. Split: named vs unnamed
     // --------------------------------------------------
-    std::unordered_map<Key, std::vector<Road>, KeyHash> groups;
+    std::unordered_map<Key, std::vector<Road>, KeyHash> namedGroups;
+    std::unordered_map<RoadType, std::vector<Road>> unnamedGroups;
 
     for (auto &r : valid)
     {
-        Key k;
-
-        k.type = r.type;
-
         if (!r.name.empty() && r.name != "unknown")
         {
-            k.name = r.name;
-            k.hasName = true;
+            Key k{r.name, r.type, true};
+            namedGroups[k].push_back(std::move(r));
         }
         else
         {
-            k.name = "";
-            k.hasName = false;
+            unnamedGroups[r.type].push_back(std::move(r));
         }
-
-        groups[k].push_back(std::move(r));
     }
 
     // --------------------------------------------------
-    // 3. Jede Gruppe separat mergen
+    // 3. Ergebniscontainer (WICHTIG: vor Lambda!)
     // --------------------------------------------------
     std::vector<Road> result;
 
-    for (auto &[key, group] : groups)
+    // --------------------------------------------------
+    // 4. Merge-Funktion
+    // --------------------------------------------------
+    auto processGroup = [&result](std::vector<Road> &group,
+                                  const std::string &name,
+                                  RoadType type)
     {
         int n = group.size();
+        if (n == 0)
+            return;
 
-        // Endpoint Index
         std::unordered_map<QPoint, std::vector<int>, QPointHash> endpointMap;
 
         for (int i = 0; i < n; i++)
         {
-            auto &r = group[i];
-
+            const auto &r = group[i];
             endpointMap[toQ(r.nodes.front())].push_back(i);
             endpointMap[toQ(r.nodes.back())].push_back(i);
         }
 
-        // Adjacency
         std::vector<std::vector<int>> adj(n);
 
         for (int i = 0; i < n; i++)
         {
-            auto &r = group[i];
+            const auto &r = group[i];
 
             QPoint ends[2] = {
                 toQ(r.nodes.front()),
@@ -134,25 +132,30 @@ void PreProcessingUnit::preprocessRoads(std::vector<Road> &roads)
                         adj[i].push_back(j);
                 }
             }
+
+            // Duplikate entfernen
+            std::sort(adj[i].begin(), adj[i].end());
+            adj[i].erase(std::unique(adj[i].begin(), adj[i].end()), adj[i].end());
         }
 
-        // Degree
         std::vector<int> degree(n);
         for (int i = 0; i < n; i++)
             degree[i] = adj[i].size();
 
         std::vector<bool> visited(n, false);
 
-        // --------------------------------------------------
-        // 4. Chains bauen
-        // --------------------------------------------------
+        auto same = [](const Point &a, const Point &b)
+        {
+            return std::abs(a.x - b.x) < 1e-6 &&
+                   std::abs(a.y - b.y) < 1e-6;
+        };
+
         for (int i = 0; i < n; i++)
         {
             if (visited[i])
                 continue;
 
             std::vector<int> chain;
-
             int current = i;
             int prev = -1;
 
@@ -163,9 +166,6 @@ void PreProcessingUnit::preprocessRoads(std::vector<Road> &roads)
 
                 visited[current] = true;
                 chain.push_back(current);
-
-                if (degree[current] != 2 && current != i)
-                    break;
 
                 int next = -1;
 
@@ -185,25 +185,17 @@ void PreProcessingUnit::preprocessRoads(std::vector<Road> &roads)
                 current = next;
             }
 
-            // --------------------------------------------------
-            // 5. Merge
-            // --------------------------------------------------
+            // Merge
             Road merged;
-            merged.name = key.name;
-            merged.type = key.type;
+            merged.name = name;
+            merged.type = type;
             merged.id = group[i].id;
 
             std::vector<Point> line;
 
-            auto same = [](const Point &a, const Point &b)
-            {
-                return std::abs(a.x - b.x) < 1e-6 &&
-                       std::abs(a.y - b.y) < 1e-6;
-            };
-
             for (int idx : chain)
             {
-                auto &r = group[idx];
+                const auto &r = group[idx];
 
                 if (line.empty())
                 {
@@ -239,8 +231,24 @@ void PreProcessingUnit::preprocessRoads(std::vector<Road> &roads)
                 result.push_back(std::move(merged));
             }
         }
+    };
+
+    // --------------------------------------------------
+    // 5. Alle Gruppen verarbeiten
+    // --------------------------------------------------
+    for (auto &[key, group] : namedGroups)
+    {
+        processGroup(group, key.name, key.type);
     }
 
+    for (auto &[type, group] : unnamedGroups)
+    {
+        processGroup(group, "", type);
+    }
+
+    // --------------------------------------------------
+    // 6. Ergebnis zurückschreiben
+    // --------------------------------------------------
     roads = std::move(result);
 
     auto endTime = std::chrono::steady_clock::now();

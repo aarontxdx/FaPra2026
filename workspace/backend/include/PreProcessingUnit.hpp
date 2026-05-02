@@ -29,7 +29,7 @@ struct KeyHash
     }
 };
 
-// 👉 quantisierte Punkte (verhindert float-Probleme)
+// quantised point
 struct QPoint
 {
     int x, y;
@@ -61,19 +61,4 @@ class PreProcessingUnit
 public:
     void preprocessBuildings(std::vector<Building> &buildings);
     void preprocessRoads(std::vector<Road> &roads);
-
-private:
-    struct GridKey
-    {
-        int x, y;
-        bool operator==(const GridKey &o) const { return x == o.x && y == o.y; }
-    };
-
-    struct GridHash
-    {
-        size_t operator()(const GridKey &k) const
-        {
-            return std::hash<int>()(k.x) ^ (std::hash<int>()(k.y) << 1);
-        }
-    };
 };
