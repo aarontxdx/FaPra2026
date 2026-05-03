@@ -9,6 +9,8 @@ namespace helper
 {
     /**
      * computes a centroid for a given polygon
+     *
+     * TODO: Not working like expected. Have another look on this function
      */
     inline Point computeCentroid(const std::vector<Point> &poly)
     {
@@ -36,7 +38,6 @@ namespace helper
 
         if (std::abs(A) < 1e-12)
         {
-            // Fallback: Mittelwert
             double sx = 0.0, sy = 0.0;
             for (const auto &p : poly)
             {
