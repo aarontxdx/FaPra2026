@@ -5,6 +5,10 @@
 
 #include <unordered_map>
 
+/**
+ * Represents a grouping identifier for roads based on
+ * their name, type, and whether they have a valid name.
+ */
 struct Key
 {
     std::string name;
@@ -19,6 +23,10 @@ struct Key
     }
 };
 
+/**
+ * Provides a hash function for Key so it can be used efficiently
+ * in hash-based containers like std::unordered_map.
+ */
 struct KeyHash
 {
     size_t operator()(const Key &k) const
@@ -29,7 +37,10 @@ struct KeyHash
     }
 };
 
-// quantised point
+/**
+ * Represents a quantized (integer-based) version of a
+ * geographic point for robust spatial comparisons.
+ */
 struct QPoint
 {
     int x, y;
@@ -40,6 +51,9 @@ struct QPoint
     }
 };
 
+/**
+ * Provides a hash function for QPoint to enable fast lookup in hash maps.
+ */
 struct QPointHash
 {
     size_t operator()(const QPoint &p) const
@@ -48,6 +62,10 @@ struct QPointHash
     }
 };
 
+/**
+ * Converts a floating-point coordinate into a quantized integer point
+ * to reduce precision issues when comparing locations.
+ */
 static QPoint toQ(const Point &p)
 {
     const double scale = 1e6;
@@ -59,6 +77,28 @@ static QPoint toQ(const Point &p)
 class PreProcessingUnit
 {
 public:
+    /**
+     * preprocessing of buildings
+     *
+     * Finds a more representative point for a building
+     *
+     * (currently there is no filter or function to give
+     * a building more information, therefore many buildings
+     * are unnamed and partly have no housenumber)
+     *
+     * @param buildings list of Building objects
+     */
     void preprocessBuildings(std::vector<Building> &buildings);
+
+    /**
+     * preprocessing of roads
+     *
+     * merge roads that have the same name and type
+     *
+     * TODO: some of the roads doesn't get merged together
+     * TODO: (find out if the issue is because of extraction or preprocessing)
+     *
+     * @param roads list of Road objects
+     */
     void preprocessRoads(std::vector<Road> &roads);
 };
