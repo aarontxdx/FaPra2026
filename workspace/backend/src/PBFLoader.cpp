@@ -51,7 +51,7 @@ PBFLoader::extractFile(const std::string &path)
 
     RoadHandler road_handler{roads};
 
-    // Area-Assembler-Konfiguration
+    // Area-Assembler-Configuration
     const osmium::area::Assembler::config_type assembler_config;
 
     // filter
@@ -69,7 +69,7 @@ PBFLoader::extractFile(const std::string &path)
     // MultipolygonManager
     osmium::area::MultipolygonManager<osmium::area::Assembler> mp_manager{assembler_config, filter};
 
-    // 1. Pass: Relationen sammeln
+    // 1. pass: Collect realtions
     {
         std::cerr << "Pass 1 (relations)...\n";
         auto input_file = osmium::io::File{path};
@@ -77,7 +77,7 @@ PBFLoader::extractFile(const std::string &path)
         std::cerr << "Pass 1 done\n";
     }
 
-    // 2. Pass: Ways + Areas + NodeLocations + Dispatcher
+    // 2. pass: Ways + Areas + NodeLocations
     {
         std::cerr << "Pass 2 (mp_manager, buildings, roads)...\n";
         osmium::io::Reader reader{path};

@@ -9,6 +9,9 @@ using namespace geocoder::objects;
 
 namespace
 {
+    /**
+     * Computes the signed area of a polygon ring (used for orientation tests)
+     */
     double ringArea(const std::vector<Point> &ring)
     {
         double sum = 0.0;
@@ -21,7 +24,9 @@ namespace
         return sum;
     }
 
-    // >0 = CW, <0 = CCW (je nach Formel – ggf. testen!)
+    /**
+     * Returns true if the polygon ring is oriented clockwise
+     */
     bool isClockwise(const std::vector<Point> &ring)
     {
         return ringArea(ring) > 0;
@@ -45,14 +50,14 @@ int main(int argc, char *argv[])
     };
 
     std::cout << "Starting server..." << std::endl;
-    std::cout << "Loading Buildings..." << std::endl;
+    std::cout << "Extracting File..." << std::endl;
 
     PBFLoader loader;
     auto [buildings, adminAreas, roads] = loader.extractFile(pbf_file);
 
-    std::cout << "\nLoading Buildings finished...\n\n";
+    std::cout << "\nFiles extracted...\n\n";
 
-    std::cout << "Preprocessing..." << std::endl;
+    std::cout << "Preprocessing Elements..." << std::endl;
 
     PreProcessingUnit preprocessing;
     preprocessing.preprocessBuildings(buildings);
@@ -66,12 +71,12 @@ int main(int argc, char *argv[])
     httplib::Server svr;
 
     /**
-     * This server function find all Buildings (up to a threshold) in the current portview
+     * This server function finds all Buildings (up to a threshold) in the current portview
      *
      * @param threshold default =1000
      * @param minLat, minLon, maxLat, maxLon represent the current portview
      *
-     * @return JSON-file with Buildings
+     * @return JSON representation of Buildings
      */
     svr.Get("/loadBuildings", [&](const httplib::Request &req, httplib::Response &res)
             {
@@ -131,7 +136,9 @@ int main(int argc, char *argv[])
                 res.set_content(j.dump(), "application/json"); });
 
     /**
-     * This server function find all Buildings (up to a threshold) in the current portview
+     * This server function finds all administration areas
+     *
+     * TODO: No current Portview search applied at the moment
      *
      * @param threshold default =10
      * @param adminLevel default =2
@@ -140,8 +147,8 @@ int main(int argc, char *argv[])
      */
     svr.Get("/loadAdminAreas", [&](const httplib::Request &req, httplib::Response &res)
             {
-                int adminLevel = 2;
                 int threshold = 10;
+                int adminLevel = 2;
 
                 if (req.has_param("adminLevel")) {
                     adminLevel = std::stoi(req.get_param_value("adminLevel"));
@@ -210,6 +217,14 @@ int main(int argc, char *argv[])
                 res.set_header("Access-Control-Allow-Origin", "*");
                 res.set_content(json.str(), "application/json"); });
 
+    /**
+     * This server function finds all Roads (up to a threshold) in the current portview
+     *
+     * @param threshold default =1000
+     * @param minLat, minLon, maxLat, maxLon represent the current portview
+     *
+     * @return JSON representation of Roads
+     */
     svr.Get("/loadStreets", [&](const httplib::Request &req, httplib::Response &res)
             {
                 if (!req.has_param("minLat") || !req.has_param("minLon") ||

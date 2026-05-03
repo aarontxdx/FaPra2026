@@ -7,6 +7,9 @@
 
 namespace helper
 {
+    /**
+     * computes a centroid for a given polygon
+     */
     inline Point computeCentroid(const std::vector<Point> &poly)
     {
         const size_t n = poly.size();

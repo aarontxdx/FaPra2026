@@ -6,11 +6,17 @@
 
 namespace helper
 {
+    /**
+     * calculates memory usage of a single point
+     */
     inline size_t memoryUsage(const Point &p)
     {
         return sizeof(p);
     }
 
+    /**
+     * calculates memory usage of a single building
+     */
     inline size_t memoryUsage(const Building &b)
     {
         size_t size = sizeof(b);
@@ -29,6 +35,9 @@ namespace helper
         return size;
     }
 
+    /**
+     * calculates memory usage of a single administration area
+     */
     inline size_t memoryUsage(const AdminArea &a)
     {
         size_t size = sizeof(a);
@@ -46,6 +55,9 @@ namespace helper
         return size;
     }
 
+    /**
+     * calculates memory usage of a single road
+     */
     inline size_t memoryUsage(const Road &r)
     {
         size_t size = sizeof(r);
@@ -57,6 +69,13 @@ namespace helper
         return size;
     }
 
+    /**
+     * print memory usage of buildings, administration areas and roads
+     *
+     * @param buildings list of buildings with unknown memory
+     * @param adminAreas list of administration areas with unknown memory
+     * @param roads list of roads with unknown memory
+     */
     inline void printMemoryUsage(std::vector<Building> &buildings, std::vector<AdminArea> &adminAreas, std::vector<Road> &roads)
     {
         size_t totalBuildings = 0;
@@ -84,6 +103,12 @@ namespace helper
                   << "Roads: " << totalRoads / (1024.0 * 1024.0) << " MB\n\n";
     }
 
+    /**
+     * print memory usage of buildings
+     *
+     * @param buildings list of buildings with unknown memory
+     * @param message extra console output
+     */
     inline void printMemoryUsageBuildings(std::vector<Building> &buildings, const std::string &message)
     {
         size_t totalMemory = 0;
@@ -96,6 +121,12 @@ namespace helper
                   << "Buildings: " << totalMemory / (1024.0 * 1024.0) << " MB\n";
     }
 
+    /**
+     * print memory usage of roads
+     *
+     * @param roads list of roads with unknown memory
+     * @param message extra console output
+     */
     inline void printMemoryUsageRoads(std::vector<Road> &roads, const std::string &message)
     {
         size_t totalMemory = 0;
