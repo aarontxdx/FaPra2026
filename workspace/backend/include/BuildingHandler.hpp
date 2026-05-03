@@ -49,10 +49,18 @@ public:
         b.city = tags.get_value_by_key("addr:city", "");
         b.country = tags.get_value_by_key("addr:country", "");
 
+        b.housenumber.shrink_to_fit();
+        b.street.shrink_to_fit();
+        b.postcode.shrink_to_fit();
+        b.city.shrink_to_fit();
+        b.country.shrink_to_fit();
+
         if (tags.has_key("name:de"))
             b.name = tags.get_value_by_key("name:de");
         else
             b.name = tags.get_value_by_key("name", "");
+
+        b.name.shrink_to_fit();
 
         buildings.push_back(std::move(b));
     }
