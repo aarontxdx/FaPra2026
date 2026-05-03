@@ -21,19 +21,14 @@ public:
 
         RoadType type = parseRoadType(tag);
 
-        // harte Filter nur für wirklich irrelevante Dinge
+        // filter out ignored tags
         if (isIgnored(tag))
             return;
-
-        // optional: alles raus, was wir wirklich nicht nutzen
-        // if (type == RoadType::Unknown)
-        //  return;
 
         Road road;
         road.type = type;
         road.id = way.id();
 
-        // Name
         if (tags.has_key("name:de"))
             road.name = tags.get_value_by_key("name:de");
         else if (tags.has_key("name"))
@@ -41,7 +36,6 @@ public:
         else
             road.name = "unknown";
 
-        // Nodes
         road.nodes.reserve(way.nodes().size());
 
         for (const auto &n : way.nodes())
