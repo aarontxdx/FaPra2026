@@ -4,6 +4,7 @@
 #include "Road.hpp"
 
 #include <unordered_map>
+#include <cmath>
 
 /**
  * Represents a grouping identifier for roads based on
