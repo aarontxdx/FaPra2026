@@ -1,6 +1,9 @@
 #include <httplib.h>
 #include "PBFLoader.hpp"
 #include "PreProcessingUnit.hpp"
+#include "ReverseGeocoder.hpp"
+#include "UtilFunctions.hpp"
+
 #include <json.hpp>
 #include <iostream>
 
@@ -53,19 +56,32 @@ int main(int argc, char *argv[])
     std::cout << "Extracting File..." << std::endl;
 
     PBFLoader loader;
-    auto [buildings, adminAreas, roads] = loader.extractFile(pbf_file);
+
+    std::vector<Building> buildings;
+    std::vector<AdminArea> adminAreas;
+    std::vector<Road> roads;
+
+    loader.extractFile(buildings, adminAreas, roads, pbf_file);
 
     std::cout << "\nFiles extracted...\n\n";
 
     std::cout << "Preprocessing Elements..." << std::endl;
 
     PreProcessingUnit preprocessing;
-    preprocessing.preprocessBuildings(buildings);
+    preprocessing.preprocessBuildings(buildings, adminAreas);
 
     // not working right now
     preprocessing.preprocessRoads(roads);
 
     std::cout << "\nPreprocessing finished....\n"
+              << std::endl;
+
+    std::cout << "\nStarting Reverse Geocoder....\n"
+              << std::endl;
+
+    ReverseGeocoder reverseGeocoder{buildings, adminAreas, roads};
+
+    std::cout << "\nReverse Geocoder is running....\n"
               << std::endl;
 
     httplib::Server svr;

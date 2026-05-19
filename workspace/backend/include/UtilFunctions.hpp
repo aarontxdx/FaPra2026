@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Building.hpp"
+#include "Point.hpp"
+#include "AdminArea.hpp"
 
-#include <vector>
-#include <string>
+#include <vector>;
 
 namespace helper
 {
@@ -12,44 +12,17 @@ namespace helper
      *
      * TODO: Not working like expected. Have another look on this function
      */
-    inline Point computeCentroid(const std::vector<Point> &poly)
-    {
-        const size_t n = poly.size();
-        if (n < 3)
-            return {0.0, 0.0};
+    Point computeCentroid(const std::vector<Point> &poly);
 
-        double A = 0.0;
-        double Cx = 0.0;
-        double Cy = 0.0;
-
-        for (size_t i = 0; i < n; ++i)
-        {
-            const auto &p1 = poly[i];
-            const auto &p2 = poly[(i + 1) % n];
-
-            double cross = p1.x * p2.y - p2.x * p1.y;
-
-            A += cross;
-            Cx += (p1.x + p2.x) * cross;
-            Cy += (p1.y + p2.y) * cross;
-        }
-
-        A *= 0.5;
-
-        if (std::abs(A) < 1e-12)
-        {
-            double sx = 0.0, sy = 0.0;
-            for (const auto &p : poly)
-            {
-                sx += p.x;
-                sy += p.y;
-            }
-            return {sx / n, sy / n};
-        }
-
-        Cx /= (6.0 * A);
-        Cy /= (6.0 * A);
-
-        return {Cx, Cy};
-    }
+    /**
+     * TODO: Add params to filter out areas befor the bb test (If building has a postal code for example)
+     *
+     * Computes a point in polygon test for a given point and a list of AdminAreas
+     *
+     * @param point point to test
+     * @param adminAreas polygons to test
+     *
+     * @return list of AdminArea pointers which include the given point
+     */
+    std::vector<const AdminArea *> pointInPolygon(Point &point, std::vector<AdminArea> &adminAreas);
 }

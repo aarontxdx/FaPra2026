@@ -1,18 +1,21 @@
 #pragma once
 
-#include <string>
+#include "Point.hpp"
+#include "GeocoderObject.hpp"
+
 #include <vector>
 #include <memory>
+#include <tuple>
 
-#include "Point.hpp"
-
-struct AdminArea
+struct AdminArea : GeocoderObject
 {
-    std::string name;
     int admin_level;
     std::string boundary;
+    std::string postal_code;
 
     std::vector<std::vector<Point>> area;
+
+    std::tuple<Point, Point> bb;
 
     int64_t id;
 };

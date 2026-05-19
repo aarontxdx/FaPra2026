@@ -17,6 +17,7 @@ public:
      *
      * @return list of Buildings, Administration Areas and Roads
      */
-    std::tuple<std::vector<Building>, std::vector<AdminArea>, std::vector<Road>>
-    extractFile(const std::string &path);
+    void extractFile(std::vector<Building> &buildings,
+                     std::vector<AdminArea> &adminAreas,
+                     std::vector<Road> &roads, const std::string &path);
 };

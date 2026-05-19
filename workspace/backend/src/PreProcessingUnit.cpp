@@ -1,6 +1,7 @@
 #include "PreProcessingUnit.hpp"
 
 #include "MemoryUsageHelper.hpp"
+#include "UtilFunctions.hpp"
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/algorithms/point_on_surface.hpp>
@@ -8,12 +9,82 @@
 
 namespace
 {
+    /**
+     * Represents a grouping identifier for roads based on
+     * their name, type, and whether they have a valid name.
+     */
+    struct Key
+    {
+        std::string name;
+        RoadType type;
+        bool hasName;
+
+        bool operator==(const Key &o) const
+        {
+            return type == o.type &&
+                   hasName == o.hasName &&
+                   name == o.name;
+        }
+    };
+
+    /**
+     * Provides a hash function for Key so it can be used efficiently
+     * in hash-based containers like std::unordered_map.
+     */
+    struct KeyHash
+    {
+        size_t operator()(const Key &k) const
+        {
+            return std::hash<std::string>()(k.name) ^
+                   (std::hash<int>()((int)k.type) << 1) ^
+                   (std::hash<bool>()(k.hasName) << 2);
+        }
+    };
+
+    /**
+     * Represents a quantized (integer-based) version of a
+     * geographic point for robust spatial comparisons.
+     */
+    struct QPoint
+    {
+        int x, y;
+
+        bool operator==(const QPoint &o) const
+        {
+            return x == o.x && y == o.y;
+        }
+    };
+
+    /**
+     * Provides a hash function for QPoint to enable fast lookup in hash maps.
+     */
+    struct QPointHash
+    {
+        size_t operator()(const QPoint &p) const
+        {
+            return std::hash<int>()(p.x) ^ (std::hash<int>()(p.y) << 1);
+        }
+    };
+
+    /**
+     * Converts a floating-point coordinate into a quantized integer point
+     * to reduce precision issues when comparing locations.
+     */
+    static QPoint toQ(const Point &p)
+    {
+        const double scale = 1e6;
+        return {
+            (int)std::round(p.x * scale),
+            (int)std::round(p.y * scale)};
+    }
+
     namespace bg = boost::geometry;
 
     using BoostPoint = bg::model::point<double, 2, bg::cs::cartesian>;
 
     /**
      * This function finds a point on a polygon
+     * Used to find a representative Point per building
      *
      * @param poly the polygon to test
      *
@@ -39,11 +110,8 @@ namespace
     }
 
     /**
-     * Die Funktion erstellt aus den Straßen einen Graphen, indem sie Straßen über
-     * gemeinsame Endpunkte verbindet und daraus Adjazenzlisten sowie Knotengrade berechnet.
-     *
      * This creates a graph from the given road group which is done by connecting end points.
-     * It calculates a the node degree and adjacence lists
+     * It calculates the node degree and adjacence lists
      */
     void buildGraph(const std::vector<Road> &group,
                     std::vector<std::vector<int>> &adj,
@@ -241,7 +309,9 @@ namespace
     }
 }
 
-void PreProcessingUnit::preprocessBuildings(std::vector<Building> &buildings)
+void PreProcessingUnit::preprocessBuildings(
+    std::vector<Building> &buildings,
+    std::vector<AdminArea> &adminAreas)
 {
     helper::printMemoryUsageBuildings(buildings, "Memory of Buildings before Preprocessing:");
 
@@ -252,6 +322,22 @@ void PreProcessingUnit::preprocessBuildings(std::vector<Building> &buildings)
         building.centroid = representativePoint(building.polygon);
         building.polygon.clear();
         building.polygon.shrink_to_fit();
+
+        // TODO: For this PIP test sometimes it should be good to use not lat lon but use projections to x/y
+        // TODO: (lat lon are not coordinates on a plane)
+
+        // TODO: PIP test should take arguments to sort out some kinds of areas
+        std::vector<const AdminArea *> correspondingAreas = helper::pointInPolygon(building.centroid, adminAreas);
+
+        for (const auto *area : correspondingAreas)
+        {
+            if (area->boundary == "postal_code")
+            {
+                if (!building.postcode.empty())
+                    continue;
+                building.postcode = area->postal_code;
+            }
+        }
     }
 
     auto endTime = std::chrono::steady_clock::now();

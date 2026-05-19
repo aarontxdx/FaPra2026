@@ -19,18 +19,34 @@ namespace helper
      */
     inline size_t memoryUsage(const Building &b)
     {
-        size_t size = sizeof(b);
+        size_t size = 0;
 
-        size += b.housenumber.capacity();
-        size += b.street.capacity();
-        size += b.postcode.capacity();
-        size += b.city.capacity();
-        size += b.country.capacity();
+        // --- Base class ---
+        size += sizeof(GeocoderObject);
         size += b.name.capacity();
 
+        // --- vector<Point> polygon ---
+        size += sizeof(std::vector<Point>);
         size += b.polygon.capacity() * sizeof(Point);
 
+        // --- centroid ---
         size += sizeof(b.centroid);
+
+        // --- strings ---
+        size += sizeof(std::string);
+        size += b.housenumber.capacity();
+
+        size += sizeof(std::string);
+        size += b.street.capacity();
+
+        size += sizeof(std::string);
+        size += b.postcode.capacity();
+
+        size += sizeof(std::string);
+        size += b.city.capacity();
+
+        size += sizeof(std::string);
+        size += b.country.capacity();
 
         return size;
     }
@@ -40,15 +56,32 @@ namespace helper
      */
     inline size_t memoryUsage(const AdminArea &a)
     {
-        size_t size = sizeof(a);
+        size_t size = 0;
 
+        // --- Base class ---
+        size += sizeof(GeocoderObject);
         size += a.name.capacity();
+
+        // --- AdminArea primitive fields ---
+        size += sizeof(a.admin_level);
+        size += sizeof(a.id);
+        size += a.postal_code.capacity();
+
+        // tuple BB (2 Points)
+        size += sizeof(std::get<0>(a.bb));
+        size += sizeof(std::get<1>(a.bb));
+
+        // --- boundary string ---
+        size += sizeof(std::string);
         size += a.boundary.capacity();
 
+        // --- area (vector<vector<Point>>) ---
+        size += sizeof(std::vector<std::vector<Point>>);
         size += a.area.capacity() * sizeof(std::vector<Point>);
 
         for (const auto &ring : a.area)
         {
+            size += sizeof(std::vector<Point>);
             size += ring.capacity() * sizeof(Point);
         }
 
@@ -60,10 +93,18 @@ namespace helper
      */
     inline size_t memoryUsage(const Road &r)
     {
-        size_t size = sizeof(r);
+        size_t size = 0;
 
+        // --- Base class ---
+        size += sizeof(GeocoderObject);
         size += r.name.capacity();
 
+        // --- Road fields ---
+        size += sizeof(r.type);
+        size += sizeof(r.id);
+
+        // --- nodes vector ---
+        size += sizeof(std::vector<Point>);
         size += r.nodes.capacity() * sizeof(Point);
 
         return size;

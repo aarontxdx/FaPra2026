@@ -1,10 +1,11 @@
 #pragma once
-#include <vector>
-#include <string>
 
 #include "Point.hpp"
+#include "GeocoderObject.hpp"
 
-struct Building
+#include <vector>
+
+struct Building : GeocoderObject
 {
     std::vector<Point> polygon;
     Point centroid;
@@ -14,5 +15,4 @@ struct Building
     std::string postcode;
     std::string city;
     std::string country;
-    std::string name;
 };

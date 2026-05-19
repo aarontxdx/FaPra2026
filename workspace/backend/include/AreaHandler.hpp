@@ -25,30 +25,46 @@ public:
     inline void area(const osmium::Area &area) noexcept
     {
         const auto &tags = area.tags();
-        if (!tags.has_key("boundary") ||
-            tags.get_value_by_key("boundary") != std::string("administrative"))
+        if (!tags.has_key("boundary"))
             return;
+
+        auto boundary = tags.get_value_by_key("boundary");
+
+        if (boundary != std::string("administrative") &&
+            boundary != std::string("postal_code"))
+            return;
+
         try
         {
             auto mp = m_factory.create_multipolygon(area);
 
             AdminArea admin;
-            if (area.tags().has_key("name"))
+            if (tags.has_key("name"))
             {
-                admin.name = area.tags()["name"];
+                admin.name = tags["name"];
             }
 
-            if (area.tags().has_key("admin_level"))
+            if (tags.has_key("admin_level"))
             {
-                admin.admin_level = std::stoi(area.tags()["admin_level"]);
+                admin.admin_level = std::stoi(tags["admin_level"]);
             }
 
-            if (area.tags().has_key("boundary"))
+            if (tags.has_key("boundary"))
             {
-                admin.boundary = area.tags()["boundary"];
+                admin.boundary = tags["boundary"];
+            }
+            if (tags.has_key("postal_code") && tags["postal_code"] != "")
+            {
+                admin.postal_code = tags["postal_code"];
             }
 
             admin.id = area.id();
+
+            // BoundingBox
+            double minLat = std::numeric_limits<double>::infinity();
+            double maxLat = -std::numeric_limits<double>::infinity();
+            double minLon = std::numeric_limits<double>::infinity();
+            double maxLon = -std::numeric_limits<double>::infinity();
 
             for (const auto &outer : area.outer_rings())
             {
@@ -57,7 +73,17 @@ public:
                 for (const auto &n : outer)
                 {
                     const auto &loc = n.location();
-                    outerRing.emplace_back(loc.lat(), loc.lon());
+
+                    double lat = loc.lat();
+                    double lon = loc.lon();
+
+                    outerRing.emplace_back(lat, lon);
+
+                    // Update BB
+                    minLat = std::min(minLat, lat);
+                    maxLat = std::max(maxLat, lat);
+                    minLon = std::min(minLon, lon);
+                    maxLon = std::max(maxLon, lon);
                 }
 
                 admin.area.push_back(std::move(outerRing));
@@ -75,6 +101,8 @@ public:
                     admin.area.push_back(std::move(innerRing));
                 }
             }
+
+            admin.bb = {Point{minLon, minLat}, Point{maxLon, maxLat}};
 
             adminAreas->push_back(std::move(admin));
         }
