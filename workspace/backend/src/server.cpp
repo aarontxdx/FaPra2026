@@ -137,6 +137,8 @@ int main(int argc, char *argv[])
                     jb["postcode"] = b.postcode;
                     jb["city"] = b.city;
                     jb["country"] = b.country;
+                    jb["state"] = b.state;
+                    jb["county"] = b.county;
                     jb["name"] = b.name;
 
                     j.push_back(jb);

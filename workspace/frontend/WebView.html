@@ -102,7 +102,7 @@
 
       <!-- Optional: Slider behalten -->
       <label for="adminSlider">Admin-Level:</label>
-      <input type="range" id="adminSlider" min="0" max="6" step="1" value="0">
+      <input type="range" id="adminSlider" min="0" max="7" step="1" value="0">
       <span id="adminLabel"></span>
     </section>
   </aside>
@@ -139,6 +139,7 @@
     { level: 4,  name: "Bundesland" },
     { level: 5,  name: "Regierungsbezirk" },
     { level: 6,  name: "Landkreis / Kreisfreie Stadt" },
+    { level: 7,  name: "Stadt"},
     { level: 8,  name: "Gemeinde / Stadt" },
     { level: 9,  name: "Stadtbezirk" },
     { level: 10, name: "Ortsteil / Stadtteil" }
@@ -205,7 +206,9 @@
                         <b>${b.name || "Building"}</b><br>
                         ${b.street || ""} ${b.housenumber || ""}<br>
                         ${b.postcode || ""} ${b.city || ""}<br>
-                        ${b.country || ""}
+                        ${b.country || ""}<br>
+                        ${b.state || ""}<br>
+                        ${b.county || ""}
                     `);
 
                     buildingLayer.addLayer(marker);

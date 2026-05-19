@@ -10,6 +10,61 @@
 namespace
 {
     /**
+     * This function do a PIP test for a specific building and preprocesses the labels of the given building
+     */
+    void buildingInPolygonTest(Building &building, std::vector<AdminArea> &adminAreas)
+    {
+        // TODO: PIP test should take arguments to sort out some kinds of areas
+        std::vector<const AdminArea *> correspondingAreas = helper::pointInPolygon(building.centroid, adminAreas);
+
+        std::string postalcode;
+        std::string county;
+        std::string city;
+        std::string district;
+
+        for (const auto *area : correspondingAreas)
+        {
+            if (area->boundary == "postal_code")
+            {
+                if (!building.postcode.empty())
+                    continue;
+                building.postcode = area->postal_code;
+            }
+            else if (area->name.empty())
+            {
+                continue;
+            }
+            else if (area->admin_level == 2)
+            {
+                if (building.country.empty())
+                {
+                    building.country = area->name;
+                }
+            }
+            else if (area->admin_level == 4)
+            {
+                building.state = area->name;
+            }
+            else if (area->admin_level == 6)
+            {
+                building.county = area->name;
+            }
+            else if (area->admin_level == 8)
+            {
+                if (!building.city.empty())
+                    continue;
+                building.city = area->name;
+            }
+            else if (area->admin_level == 9)
+            {
+                district = area->name;
+            }
+        }
+        if (building.city.empty())
+            building.city = district;
+    }
+
+    /**
      * Represents a grouping identifier for roads based on
      * their name, type, and whether they have a valid name.
      */
@@ -307,7 +362,7 @@ namespace
         buildGraph(group, adj, degree);
         mergeChains(group, adj, degree, name, type, result);
     }
-}
+} // namespace
 
 void PreProcessingUnit::preprocessBuildings(
     std::vector<Building> &buildings,
@@ -326,18 +381,7 @@ void PreProcessingUnit::preprocessBuildings(
         // TODO: For this PIP test sometimes it should be good to use not lat lon but use projections to x/y
         // TODO: (lat lon are not coordinates on a plane)
 
-        // TODO: PIP test should take arguments to sort out some kinds of areas
-        std::vector<const AdminArea *> correspondingAreas = helper::pointInPolygon(building.centroid, adminAreas);
-
-        for (const auto *area : correspondingAreas)
-        {
-            if (area->boundary == "postal_code")
-            {
-                if (!building.postcode.empty())
-                    continue;
-                building.postcode = area->postal_code;
-            }
-        }
+        buildingInPolygonTest(building, adminAreas);
     }
 
     auto endTime = std::chrono::steady_clock::now();

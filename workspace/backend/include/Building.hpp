@@ -1,7 +1,7 @@
 #pragma once
 
+#include "AdminArea.hpp"
 #include "Point.hpp"
-#include "GeocoderObject.hpp"
 
 #include <vector>
 
@@ -12,7 +12,12 @@ struct Building : GeocoderObject
 
     std::string housenumber;
     std::string street;
-    std::string postcode;
-    std::string city;
+
     std::string country;
+    std::string state;
+    std::string county;
+    std::string city;
+    std::string postcode;
+
+    std::vector<AdminArea *> adminAreas;
 };

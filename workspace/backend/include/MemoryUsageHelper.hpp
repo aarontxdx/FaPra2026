@@ -14,9 +14,6 @@ namespace helper
         return sizeof(p);
     }
 
-    /**
-     * calculates memory usage of a single building
-     */
     inline size_t memoryUsage(const Building &b)
     {
         size_t size = 0;
@@ -25,7 +22,7 @@ namespace helper
         size += sizeof(GeocoderObject);
         size += b.name.capacity();
 
-        // --- vector<Point> polygon ---
+        // --- polygon ---
         size += sizeof(std::vector<Point>);
         size += b.polygon.capacity() * sizeof(Point);
 
@@ -33,20 +30,18 @@ namespace helper
         size += sizeof(b.centroid);
 
         // --- strings ---
-        size += sizeof(std::string);
-        size += b.housenumber.capacity();
+        size += sizeof(std::string) + b.housenumber.capacity();
+        size += sizeof(std::string) + b.street.capacity();
 
-        size += sizeof(std::string);
-        size += b.street.capacity();
+        size += sizeof(std::string) + b.country.capacity();
+        size += sizeof(std::string) + b.state.capacity();
+        size += sizeof(std::string) + b.county.capacity();
+        size += sizeof(std::string) + b.city.capacity();
+        size += sizeof(std::string) + b.postcode.capacity();
 
-        size += sizeof(std::string);
-        size += b.postcode.capacity();
-
-        size += sizeof(std::string);
-        size += b.city.capacity();
-
-        size += sizeof(std::string);
-        size += b.country.capacity();
+        // --- adminAreas (vector of pointers) ---
+        size += sizeof(std::vector<AdminArea *>);
+        size += b.adminAreas.capacity() * sizeof(AdminArea *);
 
         return size;
     }
