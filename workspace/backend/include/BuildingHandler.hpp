@@ -31,7 +31,7 @@ public:
             if (!n.location().valid())
                 return;
 
-            poly.emplace_back(n.location().lon(), n.location().lat());
+            poly.emplace_back(n.location().lat(), n.location().lon());
         }
 
         if (poly.size() < 4)

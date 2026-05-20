@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Building.hpp"
 #include "AdminArea.hpp"
+#include "Building.hpp"
+#include "Grid.hpp"
 #include "Road.hpp"
 
 #include <unordered_map>

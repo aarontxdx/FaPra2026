@@ -65,6 +65,31 @@ namespace
     }
 
     /**
+     * This function updates the boundingbox for a given Point
+     */
+    void updateObjectBoundingBox(Point &centroid, std::tuple<Point, Point> &GeocoderObjectBB)
+    {
+        Point &minPoint = std::get<0>(GeocoderObjectBB);
+        Point &maxPoint = std::get<1>(GeocoderObjectBB);
+
+        minPoint.lat = std::min(minPoint.lat, centroid.lat);
+        minPoint.lon = std::min(minPoint.lon, centroid.lon);
+        maxPoint.lat = std::max(maxPoint.lat, centroid.lat);
+        maxPoint.lon = std::max(maxPoint.lon, centroid.lon);
+    }
+
+    /**
+     * insert Buildings into grid
+     */
+    void buildGrid(Grid &grid, std::vector<Building> &buildings)
+    {
+        for (auto &building : buildings)
+        {
+            grid.insert(&building);
+        }
+    }
+
+    /**
      * Represents a grouping identifier for roads based on
      * their name, type, and whether they have a valid name.
      */
@@ -129,8 +154,8 @@ namespace
     {
         const double scale = 1e6;
         return {
-            (int)std::round(p.x * scale),
-            (int)std::round(p.y * scale)};
+            (int)std::round(p.lat * scale),
+            (int)std::round(p.lon * scale)};
     }
 
     namespace bg = boost::geometry;
@@ -154,7 +179,7 @@ namespace
         bg::model::polygon<BoostPoint> polygon;
 
         for (const auto &p : poly)
-            bg::append(polygon.outer(), BoostPoint(p.x, p.y));
+            bg::append(polygon.outer(), BoostPoint(p.lat, p.lon));
 
         bg::correct(polygon);
 
@@ -261,8 +286,8 @@ namespace
     {
         auto same = [](const Point &a, const Point &b)
         {
-            return std::abs(a.x - b.x) < 1e-6 &&
-                   std::abs(a.y - b.y) < 1e-6;
+            return std::abs(a.lat - b.lat) < 1e-6 &&
+                   std::abs(a.lon - b.lon) < 1e-6;
         };
 
         std::vector<Point> line;
@@ -366,15 +391,24 @@ namespace
 
 void PreProcessingUnit::preprocessBuildings(
     std::vector<Building> &buildings,
-    std::vector<AdminArea> &adminAreas)
+    std::vector<AdminArea> &adminAreas,
+    Grid &grid)
 {
     helper::printMemoryUsageBuildings(buildings, "Memory of Buildings before Preprocessing:");
 
-    auto startTime = std::chrono::steady_clock::now();
+    auto startTimeTotal = std::chrono::steady_clock::now();
+
+    // BB of all objects
+    // TODO: This should also be applied to RoadHandler when these objects also count to my ReverseGeocoder
+    std::tuple<Point, Point> GeocoderObjectBB(
+        Point{std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity()},
+        Point{-std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()});
 
     for (auto &building : buildings)
     {
         building.centroid = representativePoint(building.polygon);
+        updateObjectBoundingBox(building.centroid, GeocoderObjectBB);
+
         building.polygon.clear();
         building.polygon.shrink_to_fit();
 
@@ -384,10 +418,26 @@ void PreProcessingUnit::preprocessBuildings(
         buildingInPolygonTest(building, adminAreas);
     }
 
+    auto startTimeGridBuild = std::chrono::steady_clock::now();
+
+    grid.initialize(std::get<0>(GeocoderObjectBB).lat,
+                    std::get<0>(GeocoderObjectBB).lon,
+                    std::get<1>(GeocoderObjectBB).lat,
+                    std::get<1>(GeocoderObjectBB).lon,
+                    0.1);
+
+    buildGrid(grid, buildings);
+
+    std::cout << "\nMemoryUsage grid: " << grid.memoryUsageBytes() / 1000000.0 << " MB" << std::endl;
+
     auto endTime = std::chrono::steady_clock::now();
-    auto applyDuration =
-        std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
-    std::cout << "\nTotal process Time Buildings: " << applyDuration.count() << " s\n";
+    auto applyDurationGridBuild =
+        std::chrono::duration_cast<std::chrono::seconds>(endTime - startTimeGridBuild);
+    std::cout << "\nProcess time grid build: " << applyDurationGridBuild.count() << " s\n";
+
+    auto applyDurationTotal =
+        std::chrono::duration_cast<std::chrono::seconds>(endTime - startTimeTotal);
+    std::cout << "\nTotal process Time Buildings: " << applyDurationTotal.count() << " s\n";
 
     helper::printMemoryUsageBuildings(buildings, "Memory of Buildings after Preprocessing:");
 }

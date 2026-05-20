@@ -37,6 +37,8 @@ public:
     void getNeighborCells(int row, int col, int radius,
                           std::vector<Building *> &out) const;
 
+    std::size_t memoryUsageBytes() const;
+
 private:
     double m_minLat = 0.0;
     double m_minLon = 0.0;
@@ -47,12 +49,12 @@ private:
 
     std::vector<std::vector<Cell>> m_cells;
 
-    inline int Grid::latToRow(double lat) const
+    inline int latToRow(double lat) const
     {
         return static_cast<int>((lat - m_minLat) / m_cellSize);
     }
 
-    inline int Grid::lonToCol(double lon) const
+    inline int lonToCol(double lon) const
     {
         return static_cast<int>((lon - m_minLon) / m_cellSize);
     }

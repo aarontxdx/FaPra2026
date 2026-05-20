@@ -2,5 +2,5 @@
 
 struct Point
 {
-    double x, y;
+    double lat, lon;
 };

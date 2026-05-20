@@ -8,10 +8,10 @@ namespace
 {
     bool pointInBoundingBox(Point &p, AdminArea &area)
     {
-        return p.y >= std::get<0>(area.bb).y &&
-               p.y <= std::get<1>(area.bb).y &&
-               p.x >= std::get<0>(area.bb).x &&
-               p.x <= std::get<1>(area.bb).x;
+        return p.lat >= std::get<0>(area.bb).lat &&
+               p.lat <= std::get<1>(area.bb).lat &&
+               p.lon >= std::get<0>(area.bb).lon &&
+               p.lon <= std::get<1>(area.bb).lon;
     }
 
     bool isPointInsidePolygon(const Point &p,
@@ -28,11 +28,10 @@ namespace
                 const Point &pj = polygonPart[j];
 
                 bool intersect =
-                    ((pi.y > p.x) != (pj.y > p.x)) &&
-                    (p.y < (pj.x - pi.x) *
-                                   (p.x - pi.y) /
-                                   (pj.y - pi.y) +
-                               pi.x);
+                    ((pi.lat > p.lat) != (pj.lat > p.lat)) &&
+                    (p.lon < (pj.lon - pi.lon) * (p.lat - pi.lat) /
+                                     (pj.lat - pi.lat + 1e-12) +
+                                 pi.lon);
 
                 if (intersect)
                     inside = !inside;
@@ -40,7 +39,6 @@ namespace
                 j = i;
             }
         }
-
         return inside;
     }
 }
@@ -62,11 +60,11 @@ namespace helper
             const auto &p1 = poly[i];
             const auto &p2 = poly[(i + 1) % n];
 
-            double cross = p1.x * p2.y - p2.x * p1.y;
+            double cross = p1.lat * p2.lon - p2.lat * p1.lon;
 
             A += cross;
-            Cx += (p1.x + p2.x) * cross;
-            Cy += (p1.y + p2.y) * cross;
+            Cx += (p1.lon + p2.lon) * cross;
+            Cy += (p1.lat + p2.lat) * cross;
         }
 
         A *= 0.5;
@@ -76,8 +74,8 @@ namespace helper
             double sx = 0.0, sy = 0.0;
             for (const auto &p : poly)
             {
-                sx += p.x;
-                sy += p.y;
+                sy += p.lat;
+                sx += p.lon;
             }
             return {sx / n, sy / n};
         }

@@ -14,8 +14,6 @@ public:
      * extract a given pbf file
      *
      * @param path file path of .pbf
-     *
-     * @return list of Buildings, Administration Areas and Roads
      */
     void extractFile(std::vector<Building> &buildings,
                      std::vector<AdminArea> &adminAreas,

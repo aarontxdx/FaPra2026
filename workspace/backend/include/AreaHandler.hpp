@@ -102,7 +102,7 @@ public:
                 }
             }
 
-            admin.bb = {Point{minLon, minLat}, Point{maxLon, maxLat}};
+            admin.bb = {Point{minLat, minLon}, Point{maxLat, maxLon}};
 
             adminAreas->push_back(std::move(admin));
         }

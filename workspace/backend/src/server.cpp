@@ -3,6 +3,7 @@
 #include "PreProcessingUnit.hpp"
 #include "ReverseGeocoder.hpp"
 #include "UtilFunctions.hpp"
+#include "Grid.hpp"
 
 #include <json.hpp>
 #include <iostream>
@@ -60,6 +61,7 @@ int main(int argc, char *argv[])
     std::vector<Building> buildings;
     std::vector<AdminArea> adminAreas;
     std::vector<Road> roads;
+    Grid grid{};
 
     loader.extractFile(buildings, adminAreas, roads, pbf_file);
 
@@ -68,7 +70,7 @@ int main(int argc, char *argv[])
     std::cout << "Preprocessing Elements..." << std::endl;
 
     PreProcessingUnit preprocessing;
-    preprocessing.preprocessBuildings(buildings, adminAreas);
+    preprocessing.preprocessBuildings(buildings, adminAreas, grid);
 
     // not working right now
     preprocessing.preprocessRoads(roads);
@@ -121,8 +123,8 @@ int main(int argc, char *argv[])
 
                 for (const auto &b : buildings)
                 {
-                    double lat = b.centroid.y;
-                    double lon = b.centroid.x;
+                    double lat = b.centroid.lat;
+                    double lon = b.centroid.lon;
 
                     if (lat < minLat || lat > maxLat ||
                         lon < minLon || lon > maxLon)
@@ -276,8 +278,8 @@ int main(int argc, char *argv[])
 
                     for (const auto &p : s.nodes)
                     {
-                        if (p.y >= minLat && p.y <= maxLat &&
-                            p.x >= minLon && p.x <= maxLon)
+                        if (p.lat >= minLat && p.lat <= maxLat &&
+                            p.lon >= minLon && p.lon <= maxLon)
                         {
                             inside = true;
                             break;
@@ -293,7 +295,7 @@ int main(int argc, char *argv[])
                     json coords = json::array();
                     for (const auto &p : s.nodes)
                     {
-                        coords.push_back({p.x, p.y}); // [lon, lat]
+                        coords.push_back({p.lon, p.lat}); // [lon, lat]
                     }
 
                     feature["geometry"] = {
