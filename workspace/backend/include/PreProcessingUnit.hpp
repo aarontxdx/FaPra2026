@@ -23,7 +23,8 @@ public:
      */
     void preprocessBuildings(
         std::vector<Building> &buildings,
-        std::vector<AdminArea> &adminAreas);
+        std::vector<AdminArea> &adminAreas,
+        Grid &grid);
 
     /**
      * preprocessing of roads
