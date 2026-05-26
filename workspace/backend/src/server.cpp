@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
     std::cout << "\nStarting Reverse Geocoder....\n"
               << std::endl;
 
-    ReverseGeocoder reverseGeocoder{buildings, adminAreas, roads};
+    ReverseGeocoder reverseGeocoder{buildings, adminAreas, roads, grid};
 
     std::cout << "\nReverse Geocoder is running....\n"
               << std::endl;
@@ -320,6 +320,82 @@ int main(int argc, char *argv[])
 
                 res.set_header("Access-Control-Allow-Origin", "*");
                 res.set_content(j.dump(), "application/json"); });
+
+    /**
+     * Reverse geocoding endpoint
+     *
+     * Finds the nearest object to a given point
+     *
+     * @param lat
+     * @param lon
+     *
+     * @return JSON representation of nearest object
+     */
+    svr.Get("/reverseGeocode",
+            [&](const httplib::Request &req,
+                httplib::Response &res)
+            {
+                if (!req.has_param("lat") ||
+                    !req.has_param("lon"))
+                {
+                    res.status = 400;
+                    res.set_content(
+                        "Missing lat/lon parameters",
+                        "text/plain");
+                    return;
+                }
+
+                const double lat =
+                    std::stod(req.get_param_value("lat"));
+
+                const double lon =
+                    std::stod(req.get_param_value("lon"));
+
+                try
+                {
+                    GeocoderObject nearest =
+                        reverseGeocoder.findNearestObject(
+                            lat,
+                            lon);
+
+                    json j;
+
+                    j["queryPoint"] = {lon, lat};
+
+                    j["name"] = nearest.name;
+
+                    // TODO: include this when GeocoderObject implements more attributes
+                    /*
+                    j["housenumber"] = nearest.housenumber;
+                    j["street"] = nearest.street;
+                    j["postcode"] = nearest.postcode;
+                    j["city"] = nearest.city;
+                    j["county"] = nearest.county;
+                    j["state"] = nearest.state;
+                    j["country"] = nearest.country;
+
+                    j["centroid"] = {
+                        nearest.centroid.lon,
+                        nearest.centroid.lat};
+                    */
+
+                    res.set_header(
+                        "Access-Control-Allow-Origin",
+                        "*");
+
+                    res.set_content(
+                        j.dump(),
+                        "application/json");
+                }
+                catch (const std::exception &e)
+                {
+                    res.status = 404;
+
+                    res.set_content(
+                        e.what(),
+                        "text/plain");
+                }
+            });
 
     svr.listen("0.0.0.0", 8080);
 }

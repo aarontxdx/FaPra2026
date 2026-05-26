@@ -42,32 +42,6 @@
       padding: 0.5rem;
       text-align: center;
     }
-
-    .tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin: 0.5rem 0 1rem 0;
-    }
-
-    .tab {
-    flex: 1;
-    padding: 0.4rem;
-    border: 1px solid #ccc;
-    background: white;
-    cursor: pointer;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    }
-
-    .tab.active {
-    background: #333;
-    color: white;
-    border-color: #333;
-    }
-
-    .tab:hover {
-    background: #eee;
-    }
   </style>
 </head>
 
@@ -78,17 +52,7 @@
   </header>
 
   <aside>
-    <!-- Tabs direkt unter Titel -->
-    <div class="tabs">
-        <button class="tab active" data-tab="osm">OSM Data</button>
-        <button class="tab" data-tab="reverse">Reverse Geocoder</button>
-    </div>
-
-    <hr>
-
-    <!-- OSM -->
-    <section id="osmSection">
-        <h3>OSM Data</h3>
+    <h2>Control</h2>
 
     <section>
       <h3>Filter</h3>
@@ -141,21 +105,7 @@
       <input type="range" id="adminSlider" min="0" max="7" step="1" value="0">
       <span id="adminLabel"></span>
     </section>
-    </section>
-
-    <!-- Reverse -->
-    <section id="reverseSection" style="display:none;">
-        <h3>Reverse Geocoder</h3>
-
-        <p>Klicke auf die Karte, um eine Adresse zu erhalten.</p>
-
-        <button onclick="enableReverseMode()">
-        Activate click lookup
-        </button>
-
-        <div id="reverseResult"></div>
-    </section>
-    </aside>
+  </aside>
 
   <main id="map"></main>
 
@@ -171,13 +121,8 @@
     var buildingThreshold = 1000;
     var adminThreshold = 10;
     var roadThreshold = 10000
-    let mapMode = "browse";
 
     var currentAdminLevel = 2;
-
-    const tabs = document.querySelectorAll(".tab");
-    const osmSection = document.getElementById("osmSection");
-    const reverseSection = document.getElementById("reverseSection");
 
     const buildingLayer = L.layerGroup();
     const adminLayer = L.layerGroup();
@@ -203,33 +148,6 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
     }).addTo(map);
-
-    tabs.forEach(tab => {
-        tab.addEventListener("click", () => {
-
-            tabs.forEach(t => t.classList.remove("active"));
-            tab.classList.add("active");
-
-            const mode = tab.dataset.tab;
-
-            if (mode === "osm") {
-
-                mapMode = "browse";
-
-                osmSection.style.display = "block";
-                reverseSection.style.display = "none";
-
-                map.closePopup();
-
-            } else {
-
-                mapMode = "reverse_geocode";
-
-                osmSection.style.display = "none";
-                reverseSection.style.display = "block";
-            }
-        });
-    });
 
     buildingCheckBox.addEventListener("change", (e) => {
         if (e.target.checked) {
@@ -259,45 +177,6 @@
     });
 
     slider.addEventListener("input", updateAdminLevel);
-
-    map.on("click", async (e) => {
-
-    if (mapMode !== "reverse_geocode")
-        return;
-
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
-
-    try {
-
-        const res = await fetch(
-            `http://localhost:8080/reverseGeocode?lat=${lat}&lon=${lon}`
-        );
-
-        if (!res.ok) {
-            console.error(await res.text());
-            return;
-        }
-
-        const data = await res.json();
-
-        L.popup()
-            .setLatLng([lat, lon])
-            .setContent(`
-                <b>${data.name ?? "Unknown Object"}</b><br/>
-                ${data.street ?? ""} ${data.housenumber ?? ""}<br/>
-                ${data.postcode ?? ""} ${data.city ?? ""}<br/>
-                ${data.state ?? ""}<br/>
-                ${data.country ?? ""}
-            `)
-            .openOn(map);
-
-    } catch (err) {
-
-        console.error("Reverse geocoding failed:", err);
-
-    }
-});
 
     function loadBuildings() {
         buildingLayer.clearLayers();

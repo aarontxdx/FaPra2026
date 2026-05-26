@@ -37,7 +37,7 @@ public:
     void getNeighborCells(int row, int col, int radius,
                           std::vector<Building *> &out) const;
 
-    std::size_t memoryUsageBytes() const;
+    std::size_t memoryUsageMegaBytes() const;
 
 private:
     double m_minLat = 0.0;

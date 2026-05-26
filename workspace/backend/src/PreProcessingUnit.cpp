@@ -414,6 +414,7 @@ void PreProcessingUnit::preprocessBuildings(
 
         // TODO: For this PIP test sometimes it should be good to use not lat lon but use projections to x/y
         // TODO: (lat lon are not coordinates on a plane)
+        // maybe use projections to x,y for every lat lon
 
         buildingInPolygonTest(building, adminAreas);
     }
@@ -428,7 +429,7 @@ void PreProcessingUnit::preprocessBuildings(
 
     buildGrid(grid, buildings);
 
-    std::cout << "\nMemoryUsage grid: " << grid.memoryUsageBytes() / 1000000.0 << " MB" << std::endl;
+    std::cout << "\nMemoryUsage grid: " << grid.memoryUsageMegaBytes() << " MB" << std::endl;
 
     auto endTime = std::chrono::steady_clock::now();
     auto applyDurationGridBuild =
