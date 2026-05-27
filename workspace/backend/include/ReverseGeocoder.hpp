@@ -15,6 +15,14 @@ public:
                     const std::vector<Road> &roads,
                     const Grid &grid);
 
+    /**
+     * find the nearest building to a given point
+     *
+     * @param lat
+     * @param lon
+     *
+     * @return nearest building to (lat|lon)
+     */
     Building findNearestBuilding(double lat, double lon);
 
 private:

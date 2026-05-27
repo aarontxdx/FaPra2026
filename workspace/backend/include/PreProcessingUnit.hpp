@@ -45,9 +45,6 @@ public:
      *
      * merge roads that have the same name and type
      *
-     * TODO: some of the roads doesn't get merged together
-     * TODO: (find out if the issue is because of extraction or preprocessing)
-     *
      * @param roads list of Road objects
      */
     void preprocessRoads(std::vector<Road> &roads, AdminHierarchy &adminHierarchy);

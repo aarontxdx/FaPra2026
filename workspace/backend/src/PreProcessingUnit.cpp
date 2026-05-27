@@ -10,7 +10,8 @@
 namespace
 {
     /**
-     * This function do a PIP test for a specific building and preprocesses the labels of the given building
+     * This function does a PIP test for a specific building
+     * and preprocesses the labels of the given building
      */
     void buildingInPolygonTest(
         Building &building,

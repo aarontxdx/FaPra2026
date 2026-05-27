@@ -3,7 +3,7 @@
 #include "Point.hpp"
 #include "AdminArea.hpp"
 
-#include <vector>;
+#include <vector>
 
 namespace helper
 {
@@ -15,8 +15,6 @@ namespace helper
     Point computeCentroid(const std::vector<Point> &poly);
 
     /**
-     * TODO: Add params to filter out areas befor the bb test (If building has a postal code for example)
-     *
      * Computes a point in polygon test for a given point and a list of AdminAreas
      *
      * @param point point to test

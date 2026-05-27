@@ -14,33 +14,32 @@ namespace helper
         return sizeof(p);
     }
 
+    /**
+     * calculates memory usage of a single building
+     */
     inline size_t memoryUsage(const Building &b)
     {
         size_t size = 0;
 
-        // --- Base class ---
-        size += sizeof(GeocoderObject);
+        // --- complete object itself ---
+        size += sizeof(Building);
+
+        // --- dynamically allocated string memory ---
         size += b.name.capacity();
 
-        // --- polygon ---
-        size += sizeof(std::vector<Point>);
+        size += b.country.capacity();
+        size += b.state.capacity();
+        size += b.county.capacity();
+        size += b.city.capacity();
+        size += b.postcode.capacity();
+
+        size += b.housenumber.capacity();
+        size += b.street.capacity();
+
+        // --- polygon vector heap memory ---
         size += b.polygon.capacity() * sizeof(Point);
 
-        // --- centroid ---
-        size += sizeof(b.centroid);
-
-        // --- strings ---
-        size += sizeof(std::string) + b.housenumber.capacity();
-        size += sizeof(std::string) + b.street.capacity();
-
-        size += sizeof(std::string) + b.country.capacity();
-        size += sizeof(std::string) + b.state.capacity();
-        size += sizeof(std::string) + b.county.capacity();
-        size += sizeof(std::string) + b.city.capacity();
-        size += sizeof(std::string) + b.postcode.capacity();
-
-        // --- adminAreas (vector of pointers) ---
-        size += sizeof(std::vector<AdminArea *>);
+        // --- adminAreas vector heap memory ---
         size += b.adminAreas.capacity() * sizeof(AdminArea *);
 
         return size;
@@ -53,30 +52,27 @@ namespace helper
     {
         size_t size = 0;
 
-        // --- Base class ---
-        size += sizeof(GeocoderObject);
+        // --- complete object itself ---
+        size += sizeof(AdminArea);
+
+        // --- dynamically allocated string memory ---
         size += a.name.capacity();
 
-        // --- AdminArea primitive fields ---
-        size += sizeof(a.admin_level);
-        size += sizeof(a.id);
+        size += a.country.capacity();
+        size += a.state.capacity();
+        size += a.county.capacity();
+        size += a.city.capacity();
+        size += a.postcode.capacity();
+
         size += a.postal_code.capacity();
-
-        // tuple BB (2 Points)
-        size += sizeof(std::get<0>(a.bb));
-        size += sizeof(std::get<1>(a.bb));
-
-        // --- boundary string ---
-        size += sizeof(std::string);
         size += a.boundary.capacity();
 
-        // --- area (vector<vector<Point>>) ---
-        size += sizeof(std::vector<std::vector<Point>>);
+        // --- outer vector heap memory ---
         size += a.area.capacity() * sizeof(std::vector<Point>);
 
+        // --- inner ring heap memory ---
         for (const auto &ring : a.area)
         {
-            size += sizeof(std::vector<Point>);
             size += ring.capacity() * sizeof(Point);
         }
 
@@ -90,16 +86,19 @@ namespace helper
     {
         size_t size = 0;
 
-        // --- Base class ---
-        size += sizeof(GeocoderObject);
+        // --- complete object itself ---
+        size += sizeof(Road);
+
+        // --- dynamically allocated string memory ---
         size += r.name.capacity();
 
-        // --- Road fields ---
-        size += sizeof(r.type);
-        size += sizeof(r.id);
+        size += r.country.capacity();
+        size += r.state.capacity();
+        size += r.county.capacity();
+        size += r.city.capacity();
+        size += r.postcode.capacity();
 
-        // --- nodes vector ---
-        size += sizeof(std::vector<Point>);
+        // --- nodes vector heap memory ---
         size += r.nodes.capacity() * sizeof(Point);
 
         return size;

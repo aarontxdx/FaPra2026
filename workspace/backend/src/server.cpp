@@ -332,7 +332,7 @@ int main(int argc, char *argv[])
     /**
      * Reverse geocoding endpoint
      *
-     * Finds the nearest object to a given point
+     * Finds the nearest Building to a given point
      *
      * @param lat
      * @param lon
@@ -372,8 +372,6 @@ int main(int argc, char *argv[])
 
                     j["name"] = nearestBuilding.name;
 
-                    // TODO: include this when GeocoderObject implements more attributes
-
                     j["housenumber"] = nearestBuilding.housenumber;
                     j["street"] = nearestBuilding.street;
                     j["postcode"] = nearestBuilding.postcode;
@@ -403,7 +401,17 @@ int main(int argc, char *argv[])
                         "text/plain");
                 }
             });
-
+    /**
+     * Reverse geocoding endpoint
+     *
+     * Finds the Area in which the given point is
+     *
+     * @param lat
+     * @param lon
+     * @param adminLevel defines search level
+     *
+     * @return JSON representation of nearest object
+     */
     svr.Get("/reverseGeocodeArea",
             [&](const httplib::Request &req,
                 httplib::Response &res)

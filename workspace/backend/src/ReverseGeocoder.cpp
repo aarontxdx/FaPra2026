@@ -2,11 +2,6 @@
 
 #include <iostream>
 
-namespace
-{
-
-}
-
 ReverseGeocoder::ReverseGeocoder(const std::vector<Building> &buildings,
                                  const std::vector<AdminArea> &adminAreas,
                                  const std::vector<Road> &roads,
@@ -62,9 +57,7 @@ Building ReverseGeocoder::findNearestBuilding(double lat, double lon)
             }
         }
 
-        // Early exit:
-        // if we found something in current radius
-        // we stop searching larger radii
+        // stop when we found something
         if (nearestBuilding != nullptr)
             break;
     }
