@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leaflet Map – Beispielstruktur</title>
+  <title>Geocoder - Fachpraktikum</title>
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
@@ -149,11 +149,18 @@
 
         <p>Klicke auf die Karte, um eine Adresse zu erhalten.</p>
 
-        <button onclick="enableReverseMode()">
-        Activate click lookup
-        </button>
+        <label for="geocoderMode">Geocoder Mode:</label><br>
 
-        <div id="reverseResult"></div>
+        <select id="geocoderMode">
+        <option value="automatic">Automatic</option>
+        <option value="building">Nearest Building</option>
+        <option value="2">Country</option>
+        <option value="4">State</option>
+        <option value="6">county</option>
+        <option value="8">city</option>
+        </select>
+
+        <br><br>
     </section>
     </aside>
 
@@ -188,6 +195,7 @@
     const buildingCheckBox = document.getElementById("showBuildings");
     const adminAreaCheckBox = document.getElementById("showAdminAreas")
     const streetCheckBox = document.getElementById("showStreets");
+    const geocoderMode = document.getElementById("geocoderMode");
 
     const adminLevels = [
     { level: 2,  name: "Land" },
@@ -264,37 +272,24 @@
             if (mapMode !== "reverse_geocode")
                 return;
 
-            const lat = e.latlng.lat;
-            const lon = e.latlng.lng;
+            if (geocoderMode.value == "automatic") {
+                const zoom = map.getZoom();
 
-            try {
-
-                const res = await fetch(
-                    `http://localhost:8080/reverseGeocode?lat=${lat}&lon=${lon}`
-                );
-
-                if (!res.ok) {
-                    console.error(await res.text());
-                    return;
+                if (zoom >= 14)
+                {
+                    showReverseGeocoderBuildings(e);
                 }
-
-                const data = await res.json();
-
-                L.popup()
-                    .setLatLng([lat, lon])
-                    .setContent(`
-                        <b>${data.name || "Building"}</b><br/>
-                        ${data.street ?? ""} ${data.housenumber ?? ""}<br/>
-                        ${data.postcode ?? ""} ${data.city ?? ""}<br/>
-                        ${data.county ?? ""} ${data.state ?? ""}<br/>
-                        ${data.country ?? ""}
-                    `)
-                    .openOn(map);
-
-            } catch (err) {
-
-                console.error("Reverse geocoding failed:", err);
-
+                else
+                {
+                    showReverseGeocoderAreas(e, getAdminLevel(zoom));
+                }
+            } 
+            else if (geocoderMode.value == "building"){
+                showReverseGeocoderBuildings(e);
+            }
+            else
+            {
+                showReverseGeocoderAreas(e, geocoderMode.value);
             }
         });
 
@@ -407,6 +402,124 @@
             });
     }
 
+    async function showReverseGeocoderAutomatic(e){
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+
+        try {
+
+            const res = await fetch(
+                `http://localhost:8080/reverseGeocodeAutomatic?lat=${lat}&lon=${lon}`
+            );
+
+            if (!res.ok) {
+                console.error(await res.text());
+                return;
+            }
+
+            const data = await res.json();
+
+            L.popup()
+                .setLatLng([lat, lon])
+                .setContent(`
+                    <b>${data.name || "Building"}</b><br/>
+                    ${data.street ?? ""} ${data.housenumber ?? ""}<br/>
+                    ${data.postcode ?? ""} ${data.city ?? ""}<br/>
+                    ${data.county ?? ""} ${data.state ?? ""}<br/>
+                    ${data.country ?? ""}
+                `)
+                .openOn(map);
+
+            } catch (err) {
+
+            console.error("Reverse geocoding failed:", err);
+        }
+    }
+
+    async function showReverseGeocoderBuildings(e){
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+
+        try {
+
+            const res = await fetch(
+                `http://localhost:8080/reverseGeocodeBuilding?lat=${lat}&lon=${lon}`
+            );
+
+            if (!res.ok) {
+                console.error(await res.text());
+                return;
+            }
+
+            const data = await res.json();
+
+            L.popup()
+                .setLatLng([lat, lon])
+                .setContent(`
+                    <b>${data.name || "Building"}</b><br/>
+                    ${data.street ?? ""} ${data.housenumber ?? ""}<br/>
+                    ${data.postcode ?? ""} ${data.city ?? ""}<br/>
+                    ${data.county ?? ""} ${data.state ?? ""}<br/>
+                    ${data.country ?? ""}
+                `)
+                .openOn(map);
+
+            } catch (err) {
+
+            console.error("Reverse geocoding failed:", err);
+        }
+    }
+
+    let reverseAreaLayer = L.geoJSON(null).addTo(map);
+
+    async function showReverseGeocoderAreas(e, geocoderMode)
+    {
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+
+        try
+        {
+            const res = await fetch(
+                `http://localhost:8080/reverseGeocodeArea?lat=${lat}&lon=${lon}&adminLevel=${geocoderMode}`
+            );
+
+            if (!res.ok)
+            {
+                console.error(await res.text());
+                return;
+            }
+
+            const geojson = await res.json();
+
+            // alte Ergebnisse löschen
+            reverseAreaLayer.clearLayers();
+
+            reverseAreaLayer = L.geoJSON(geojson, {
+                style: function (feature)
+                {
+                    return {
+                        color: "blue",
+                        weight: 2,
+                        fillColor: "lightblue",
+                        fillOpacity: 0.3
+                    };
+                },
+                onEachFeature: function (feature, layer)
+                {
+                    layer.bindPopup(`
+                        <b>${feature.properties.name || "Area"}</b><br/>
+                        ID: ${feature.properties.id}
+                    `);
+                }
+            });
+
+            reverseAreaLayer.addTo(map);
+        }
+        catch (err)
+        {
+            console.error("Reverse geocoding failed:", err);
+        }
+    }
 
     function setThreshold(newThreshold) {
         if (!isNaN(newThreshold) && newThreshold.trim() !== "") {
@@ -441,6 +554,15 @@
 
         currentAdminLevel = entry.level;
         adminLabel.textContent = `${entry.name} (admin_level=${entry.level})`;
+    }
+
+    function getAdminLevel(zoom)
+    {
+        if (zoom <= 4) return "2";   // country
+        if (zoom <= 7) return "4";   // state
+        if (zoom <= 10) return "6";  // county
+        if (zoom <= 13) return "8";  // city
+        return "9";                  // district
     }
 
     updateAdminLevel();

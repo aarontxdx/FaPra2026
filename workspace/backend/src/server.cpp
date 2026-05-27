@@ -339,7 +339,7 @@ int main(int argc, char *argv[])
      *
      * @return JSON representation of nearest object
      */
-    svr.Get("/reverseGeocode",
+    svr.Get("/reverseGeocodeBuilding",
             [&](const httplib::Request &req,
                 httplib::Response &res)
             {
@@ -402,6 +402,95 @@ int main(int argc, char *argv[])
                         e.what(),
                         "text/plain");
                 }
+            });
+
+    svr.Get("/reverseGeocodeArea",
+            [&](const httplib::Request &req,
+                httplib::Response &res)
+            {
+                if (!req.has_param("lat") ||
+                    !req.has_param("lon") ||
+                    !req.has_param("adminLevel"))
+                {
+                    res.status = 400;
+                    res.set_content("Missing parameters", "text/plain");
+                    return;
+                }
+
+                const double lat = std::stod(req.get_param_value("lat"));
+                const double lon = std::stod(req.get_param_value("lon"));
+                int adminLevel = std::stoi(req.get_param_value("adminLevel"));
+
+                Point p{lat, lon};
+
+                const auto &candidates =
+                    adminHierarchy.adminAreaByLevel[adminLevel];
+
+                std::ostringstream json;
+
+                json << R"({"type":"FeatureCollection","features":[)";
+
+                std::vector<const AdminArea *> hits =
+                    helper::pointInPolygon(p, candidates);
+
+                while (adminLevel < 10 && hits.empty())
+                {
+                    adminLevel++;
+                    const auto &candidates =
+                        adminHierarchy.adminAreaByLevel[adminLevel];
+
+                    hits = helper::pointInPolygon(p, candidates);
+                }
+
+                bool first = true;
+
+                for (const auto *area : hits)
+                {
+                    if (!first)
+                        json << ",";
+                    first = false;
+
+                    json << R"({"type":"Feature","geometry":{"type":"Polygon","coordinates":[)";
+
+                    for (size_t r = 0; r < area->area.size(); ++r)
+                    {
+                        if (r > 0)
+                            json << ",";
+
+                        auto ring = area->area[r];
+
+                        bool shouldBeClockwise = (r != 0);
+                        if (isClockwise(ring) != shouldBeClockwise)
+                        {
+                            std::reverse(ring.begin(), ring.end());
+                        }
+
+                        json << "[";
+
+                        for (size_t i = 0; i < ring.size(); ++i)
+                        {
+                            const auto &pt = ring[i];
+                            json << "[" << pt.lon << "," << pt.lat << "]";
+
+                            if (i + 1 < ring.size())
+                                json << ",";
+                        }
+
+                        json << "]";
+                    }
+
+                    json << R"(]},"properties":{)";
+
+                    json << R"("id":)" << area->id << ",";
+                    json << R"("name":")" << area->name << R"("})";
+
+                    json << "}";
+                }
+
+                json << "]}";
+
+                res.set_header("Access-Control-Allow-Origin", "*");
+                res.set_content(json.str(), "application/json");
             });
 
     svr.listen("0.0.0.0", 8080);
