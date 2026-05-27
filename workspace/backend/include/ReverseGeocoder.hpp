@@ -15,7 +15,7 @@ public:
                     const std::vector<Road> &roads,
                     const Grid &grid);
 
-    GeocoderObject findNearestObject(double lat, double lon);
+    Building findNearestBuilding(double lat, double lon);
 
 private:
     const std::vector<Building> m_buildings;

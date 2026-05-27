@@ -24,5 +24,7 @@ namespace helper
      *
      * @return list of AdminArea pointers which include the given point
      */
-    std::vector<const AdminArea *> pointInPolygon(Point &point, std::vector<AdminArea> &adminAreas);
+    std::vector<const AdminArea *> pointInPolygon(
+        const Point &point,
+        const std::vector<AdminArea *> &areas);
 }

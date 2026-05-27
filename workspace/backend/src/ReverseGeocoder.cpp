@@ -16,7 +16,7 @@ ReverseGeocoder::ReverseGeocoder(const std::vector<Building> &buildings,
       m_roads(roads),
       m_grid(grid) {}
 
-GeocoderObject ReverseGeocoder::findNearestObject(double lat, double lon)
+Building ReverseGeocoder::findNearestBuilding(double lat, double lon)
 {
     Point queryPoint{lat, lon};
 

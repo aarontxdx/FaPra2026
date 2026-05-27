@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
     std::vector<Building> buildings;
     std::vector<AdminArea> adminAreas;
     std::vector<Road> roads;
+    AdminHierarchy adminHierarchy;
     Grid grid{};
 
     loader.extractFile(buildings, adminAreas, roads, pbf_file);
@@ -70,10 +71,12 @@ int main(int argc, char *argv[])
     std::cout << "Preprocessing Elements..." << std::endl;
 
     PreProcessingUnit preprocessing;
-    preprocessing.preprocessBuildings(buildings, adminAreas, grid);
 
-    // not working right now
-    preprocessing.preprocessRoads(roads);
+    preprocessing.preprocessAdminAreas(adminAreas, adminHierarchy);
+
+    preprocessing.preprocessBuildings(buildings, adminHierarchy, grid);
+
+    preprocessing.preprocessRoads(roads, adminHierarchy);
 
     std::cout << "\nPreprocessing finished....\n"
               << std::endl;
@@ -307,7 +310,12 @@ int main(int argc, char *argv[])
                     feature["properties"] = {
                         {"name", s.name},
                         {"type", toString(s.type)},
-                        {"id", s.id}
+                        {"id", s.id},
+                        {"postcode", s.postcode},
+                        {"city", s.city},
+                        {"country", s.country},
+                        {"state", s.state},
+                        {"county", s.county}
                     };
 
                     j["features"].push_back(feature);
@@ -353,8 +361,8 @@ int main(int argc, char *argv[])
 
                 try
                 {
-                    GeocoderObject nearest =
-                        reverseGeocoder.findNearestObject(
+                    Building nearestBuilding =
+                        reverseGeocoder.findNearestBuilding(
                             lat,
                             lon);
 
@@ -362,22 +370,21 @@ int main(int argc, char *argv[])
 
                     j["queryPoint"] = {lon, lat};
 
-                    j["name"] = nearest.name;
+                    j["name"] = nearestBuilding.name;
 
                     // TODO: include this when GeocoderObject implements more attributes
-                    /*
-                    j["housenumber"] = nearest.housenumber;
-                    j["street"] = nearest.street;
-                    j["postcode"] = nearest.postcode;
-                    j["city"] = nearest.city;
-                    j["county"] = nearest.county;
-                    j["state"] = nearest.state;
-                    j["country"] = nearest.country;
+
+                    j["housenumber"] = nearestBuilding.housenumber;
+                    j["street"] = nearestBuilding.street;
+                    j["postcode"] = nearestBuilding.postcode;
+                    j["city"] = nearestBuilding.city;
+                    j["county"] = nearestBuilding.county;
+                    j["state"] = nearestBuilding.state;
+                    j["country"] = nearestBuilding.country;
 
                     j["centroid"] = {
-                        nearest.centroid.lon,
-                        nearest.centroid.lat};
-                    */
+                        nearestBuilding.centroid.lon,
+                        nearestBuilding.centroid.lat};
 
                     res.set_header(
                         "Access-Control-Allow-Origin",

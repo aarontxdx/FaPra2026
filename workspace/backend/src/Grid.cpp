@@ -86,7 +86,7 @@ void Grid::getNeighborCells(int row, int col, int radius,
     }
 }
 
-std::size_t Grid::memoryUsageMegaBytes() const
+float Grid::memoryUsageMegaBytes() const
 {
     std::size_t total = 0;
 

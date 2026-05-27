@@ -13,11 +13,5 @@ struct Building : GeocoderObject
     std::string housenumber;
     std::string street;
 
-    std::string country;
-    std::string state;
-    std::string county;
-    std::string city;
-    std::string postcode;
-
     std::vector<AdminArea *> adminAreas;
 };

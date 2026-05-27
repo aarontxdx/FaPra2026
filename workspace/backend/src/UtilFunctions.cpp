@@ -6,7 +6,7 @@
 
 namespace
 {
-    bool pointInBoundingBox(Point &p, AdminArea &area)
+    bool pointInBoundingBox(const Point &p, const AdminArea &area)
     {
         return p.lat >= std::get<0>(area.bb).lat &&
                p.lat <= std::get<1>(area.bb).lat &&
@@ -86,21 +86,23 @@ namespace helper
         return {Cx, Cy};
     }
 
-    std::vector<const AdminArea *> pointInPolygon(Point &point, std::vector<AdminArea> &adminAreas)
+    std::vector<const AdminArea *> pointInPolygon(
+        const Point &point,
+        const std::vector<AdminArea *> &areas)
     {
         std::vector<const AdminArea *> result;
 
-        for (auto &area : adminAreas)
+        for (const auto *area : areas)
         {
-            // BB test
-            if (!pointInBoundingBox(point, area))
+            if (!pointInBoundingBox(point, *area))
                 continue;
-            // polygon test
-            if (isPointInsidePolygon(point, area.area))
+
+            if (isPointInsidePolygon(point, area->area))
             {
-                result.push_back(&area);
+                result.push_back(area);
             }
         }
+
         return result;
     }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AdminArea.hpp"
+#include "AdminHierarchy.hpp"
 #include "Building.hpp"
 #include "Grid.hpp"
 #include "Road.hpp"
@@ -11,6 +12,18 @@
 class PreProcessingUnit
 {
 public:
+    /**
+     * preprocessing of admin areas
+     *
+     * Creates a hierarchy for all areas
+     *
+     * @param adminAreas list of all admin areas
+     * @param resultAdminAreas the resulting data structure
+     */
+    void preprocessAdminAreas(
+        std::vector<AdminArea> &adminAreas,
+        AdminHierarchy &adminHierarchy);
+
     /**
      * preprocessing of buildings
      *
@@ -24,7 +37,7 @@ public:
      */
     void preprocessBuildings(
         std::vector<Building> &buildings,
-        std::vector<AdminArea> &adminAreas,
+        AdminHierarchy &adminHierarchy,
         Grid &grid);
 
     /**
@@ -37,5 +50,5 @@ public:
      *
      * @param roads list of Road objects
      */
-    void preprocessRoads(std::vector<Road> &roads);
+    void preprocessRoads(std::vector<Road> &roads, AdminHierarchy &adminHierarchy);
 };

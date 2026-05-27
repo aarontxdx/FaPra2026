@@ -261,43 +261,42 @@
     slider.addEventListener("input", updateAdminLevel);
 
     map.on("click", async (e) => {
+            if (mapMode !== "reverse_geocode")
+                return;
 
-    if (mapMode !== "reverse_geocode")
-        return;
+            const lat = e.latlng.lat;
+            const lon = e.latlng.lng;
 
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
+            try {
 
-    try {
+                const res = await fetch(
+                    `http://localhost:8080/reverseGeocode?lat=${lat}&lon=${lon}`
+                );
 
-        const res = await fetch(
-            `http://localhost:8080/reverseGeocode?lat=${lat}&lon=${lon}`
-        );
+                if (!res.ok) {
+                    console.error(await res.text());
+                    return;
+                }
 
-        if (!res.ok) {
-            console.error(await res.text());
-            return;
-        }
+                const data = await res.json();
 
-        const data = await res.json();
+                L.popup()
+                    .setLatLng([lat, lon])
+                    .setContent(`
+                        <b>${data.name || "Building"}</b><br/>
+                        ${data.street ?? ""} ${data.housenumber ?? ""}<br/>
+                        ${data.postcode ?? ""} ${data.city ?? ""}<br/>
+                        ${data.county ?? ""} ${data.state ?? ""}<br/>
+                        ${data.country ?? ""}
+                    `)
+                    .openOn(map);
 
-        L.popup()
-            .setLatLng([lat, lon])
-            .setContent(`
-                <b>${data.name ?? "Unknown Object"}</b><br/>
-                ${data.street ?? ""} ${data.housenumber ?? ""}<br/>
-                ${data.postcode ?? ""} ${data.city ?? ""}<br/>
-                ${data.state ?? ""}<br/>
-                ${data.country ?? ""}
-            `)
-            .openOn(map);
+            } catch (err) {
 
-    } catch (err) {
+                console.error("Reverse geocoding failed:", err);
 
-        console.error("Reverse geocoding failed:", err);
-
-    }
-});
+            }
+        });
 
     function loadBuildings() {
         buildingLayer.clearLayers();
@@ -325,11 +324,11 @@
 
                     marker.bindPopup(`
                         <b>${b.name || "Building"}</b><br>
-                        ${b.street || ""} ${b.housenumber || ""}<br>
-                        ${b.postcode || ""} ${b.city || ""}<br>
-                        ${b.country || ""}<br>
-                        ${b.state || ""}<br>
-                        ${b.county || ""}
+                        ${b.street ?? ""} ${b.housenumber ?? ""}<br>
+                        ${b.postcode ?? ""} ${b.city ?? ""}<br>
+                        ${b.country ?? ""}<br>
+                        ${b.state ?? ""}<br>
+                        ${b.county ?? ""}
                     `);
 
                     buildingLayer.addLayer(marker);
@@ -396,7 +395,10 @@
                         layer.bindPopup(
                             `<b>${feature.properties.name || "Unknown road"}</b><br>
                             Type: ${feature.properties.type}<br>
-                            ID: ${feature.properties.id}`
+                            ${feature.properties.postcode ?? ""} ${feature.properties.city ?? ""}<br>
+                            ${feature.properties.country ?? ""}<br>
+                            ${feature.properties.state ?? ""}<br>
+                            ${feature.properties.county ?? ""}`
                         );
                     }
 

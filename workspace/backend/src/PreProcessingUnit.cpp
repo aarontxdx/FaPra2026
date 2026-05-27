@@ -12,56 +12,153 @@ namespace
     /**
      * This function do a PIP test for a specific building and preprocesses the labels of the given building
      */
-    void buildingInPolygonTest(Building &building, std::vector<AdminArea> &adminAreas)
+    void buildingInPolygonTest(
+        Building &building,
+        const AdminHierarchy &hierarchy)
     {
-        // TODO: PIP test should take arguments to sort out some kinds of areas
-        std::vector<const AdminArea *> correspondingAreas = helper::pointInPolygon(building.centroid, adminAreas);
+        // postalcode
+        auto postalCodes = helper::pointInPolygon(
+            building.centroid,
+            hierarchy.postalCodes);
 
-        std::string postalcode;
-        std::string county;
-        std::string city;
-        std::string district;
-
-        for (const auto *area : correspondingAreas)
+        for (const auto *area : postalCodes)
         {
-            if (area->boundary == "postal_code")
-            {
-                if (!building.postcode.empty())
-                    continue;
+            if (building.postcode.empty())
                 building.postcode = area->postal_code;
-            }
-            else if (area->name.empty())
+        }
+
+        // country (level 2)
+        if (building.country.empty())
+        {
+            auto countries = helper::pointInPolygon(
+                building.centroid,
+                hierarchy.adminAreaByLevel[2]);
+
+            for (auto *area : countries)
             {
-                continue;
-            }
-            else if (area->admin_level == 2)
-            {
-                if (building.country.empty())
-                {
-                    building.country = area->name;
-                }
-            }
-            else if (area->admin_level == 4)
-            {
-                building.state = area->name;
-            }
-            else if (area->admin_level == 6)
-            {
-                building.county = area->name;
-            }
-            else if (area->admin_level == 8)
-            {
-                if (!building.city.empty())
-                    continue;
-                building.city = area->name;
-            }
-            else if (area->admin_level == 9)
-            {
-                district = area->name;
+                building.country = area->name;
             }
         }
+
+        // state (level 4)
+        auto states = helper::pointInPolygon(
+            building.centroid,
+            hierarchy.adminAreaByLevel[4]);
+
+        for (auto *area : states)
+        {
+            building.state = area->name;
+        }
+
+        // county (level 6)
+        auto counties = helper::pointInPolygon(
+            building.centroid,
+            hierarchy.adminAreaByLevel[6]);
+
+        for (auto *area : counties)
+        {
+            building.county = area->name;
+        }
+
+        // city (level 8)
         if (building.city.empty())
-            building.city = district;
+        {
+            auto cities = helper::pointInPolygon(
+                building.centroid,
+                hierarchy.adminAreaByLevel[8]);
+
+            for (auto *area : cities)
+            {
+                building.city = area->name;
+            }
+        }
+
+        if (building.city.empty())
+        {
+            // district (level 9)
+            auto districts = helper::pointInPolygon(
+                building.centroid,
+                hierarchy.adminAreaByLevel[9]);
+
+            for (auto *area : districts)
+            {
+                building.city = area->name;
+            }
+        }
+    }
+
+    /**
+     * PIP test for roads
+     *
+     * Determines administrative areas for a road
+     */
+    void roadInPolygonTest(
+        Road &road,
+        const AdminHierarchy &hierarchy)
+    {
+        // postalcode
+        auto postalCodes = helper::pointInPolygon(
+            road.nodes[0],
+            hierarchy.postalCodes);
+
+        for (const auto *area : postalCodes)
+        {
+            if (road.postcode.empty())
+                road.postcode = area->postal_code;
+        }
+
+        // country (level 2)
+        auto countries = helper::pointInPolygon(
+            road.nodes[0],
+            hierarchy.adminAreaByLevel[2]);
+
+        for (const auto *area : countries)
+        {
+            road.country = area->name;
+        }
+
+        // state (level 4)
+        auto states = helper::pointInPolygon(
+            road.nodes[0],
+            hierarchy.adminAreaByLevel[4]);
+
+        for (const auto *area : states)
+        {
+            road.state = area->name;
+        }
+
+        // county (level 6)
+        auto counties = helper::pointInPolygon(
+            road.nodes[0],
+            hierarchy.adminAreaByLevel[6]);
+
+        for (const auto *area : counties)
+        {
+            road.county = area->name;
+        }
+
+        // city (level 8)
+        auto cities = helper::pointInPolygon(
+            road.nodes[0],
+            hierarchy.adminAreaByLevel[8]);
+
+        for (const auto *area : cities)
+        {
+            road.city = area->name;
+        }
+
+        // district (level 9)
+        auto districts = helper::pointInPolygon(
+            road.nodes[0],
+            hierarchy.adminAreaByLevel[9]);
+
+        for (const auto *area : districts)
+        {
+            if (road.city.empty())
+            {
+                road.city = area->name;
+            }
+        }
     }
 
     /**
@@ -389,9 +486,32 @@ namespace
     }
 } // namespace
 
+void PreProcessingUnit::preprocessAdminAreas(
+    std::vector<AdminArea> &adminAreas,
+    AdminHierarchy &adminHierarchy)
+{
+    for (auto &area : adminAreas)
+    {
+        // postalcode has no admin level
+        if (area.boundary == "postal_code")
+        {
+            adminHierarchy.postalCodes.push_back(&area);
+            continue;
+        }
+
+        // admin level hierarchy
+        int level = area.admin_level;
+
+        if (level >= 0 && level < static_cast<int>(adminHierarchy.adminAreaByLevel.size()))
+        {
+            adminHierarchy.adminAreaByLevel[level].push_back(&area);
+        }
+    }
+}
+
 void PreProcessingUnit::preprocessBuildings(
     std::vector<Building> &buildings,
-    std::vector<AdminArea> &adminAreas,
+    AdminHierarchy &adminHierarchy,
     Grid &grid)
 {
     helper::printMemoryUsageBuildings(buildings, "Memory of Buildings before Preprocessing:");
@@ -416,7 +536,7 @@ void PreProcessingUnit::preprocessBuildings(
         // TODO: (lat lon are not coordinates on a plane)
         // maybe use projections to x,y for every lat lon
 
-        buildingInPolygonTest(building, adminAreas);
+        buildingInPolygonTest(building, adminHierarchy);
     }
 
     auto startTimeGridBuild = std::chrono::steady_clock::now();
@@ -443,7 +563,9 @@ void PreProcessingUnit::preprocessBuildings(
     helper::printMemoryUsageBuildings(buildings, "Memory of Buildings after Preprocessing:");
 }
 
-void PreProcessingUnit::preprocessRoads(std::vector<Road> &roads)
+void PreProcessingUnit::preprocessRoads(
+    std::vector<Road> &roads,
+    AdminHierarchy &adminHierarchy)
 {
     helper::printMemoryUsageRoads(roads, "Memory of Roads before Preprocessing:");
 
@@ -480,6 +602,11 @@ void PreProcessingUnit::preprocessRoads(std::vector<Road> &roads)
     }
 
     roads = std::move(result);
+
+    for (auto &road : roads)
+    {
+        roadInPolygonTest(road, adminHierarchy);
+    }
 
     auto endTime = std::chrono::steady_clock::now();
     auto applyDuration =
