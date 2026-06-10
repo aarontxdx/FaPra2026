@@ -1,7 +1,7 @@
 #pragma once
 
-#include "AdminArea.hpp"
-#include "UtilFunctions.hpp"
+#include "GeocoderObjects/AdminArea.hpp"
+#include "Utils/UtilFunctions.hpp"
 
 #include <osmium/handler.hpp>
 #include <osmium/osm/area.hpp>

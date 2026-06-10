@@ -1,7 +1,7 @@
 #include "PreProcessingUnit.hpp"
 
-#include "MemoryUsageHelper.hpp"
-#include "UtilFunctions.hpp"
+#include "Utils/MemoryUsageHelper.hpp"
+#include "Utils/UtilFunctions.hpp"
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/algorithms/point_on_surface.hpp>

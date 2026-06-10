@@ -1,10 +1,10 @@
 #pragma once
 
-#include "AdminArea.hpp"
-#include "AdminHierarchy.hpp"
-#include "Building.hpp"
-#include "Grid.hpp"
-#include "Road.hpp"
+#include "GeocoderObjects/AdminArea.hpp"
+#include "DataStructures/AdminHierarchy.hpp"
+#include "GeocoderObjects/Building.hpp"
+#include "DataStructures/Grid.hpp"
+#include "GeocoderObjects/Road.hpp"
 
 #include <unordered_map>
 #include <cmath>

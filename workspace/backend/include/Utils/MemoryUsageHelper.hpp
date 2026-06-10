@@ -1,6 +1,6 @@
-#include "Building.hpp"
-#include "AdminArea.hpp"
-#include "Road.hpp"
+#include "GeocoderObjects/Building.hpp"
+#include "GeocoderObjects/AdminArea.hpp"
+#include "GeocoderObjects/Road.hpp"
 
 #include <iostream>
 

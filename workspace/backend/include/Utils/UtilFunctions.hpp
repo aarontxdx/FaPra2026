@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Point.hpp"
-#include "AdminArea.hpp"
+#include "GeocoderObjects/Point.hpp"
+#include "GeocoderObjects/AdminArea.hpp"
 
 #include <vector>
 

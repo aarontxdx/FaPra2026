@@ -1,8 +1,8 @@
 #pragma once
 
-#include "AdminArea.hpp"
-#include "Building.hpp"
-#include "Road.hpp"
+#include "GeocoderObjects/AdminArea.hpp"
+#include "GeocoderObjects/Building.hpp"
+#include "GeocoderObjects/Road.hpp"
 
 #include <string>
 #include <vector>

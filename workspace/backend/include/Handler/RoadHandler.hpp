@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Road.hpp"
+#include "GeocoderObjects/Road.hpp"
 #include <osmium/handler.hpp>
 #include <osmium/osm/way.hpp>
 

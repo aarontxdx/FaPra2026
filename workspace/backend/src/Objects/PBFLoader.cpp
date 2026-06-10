@@ -3,11 +3,11 @@
 #include <iostream>
 #include <chrono>
 
-#include "AreaHandler.hpp"
-#include "BuildingHandler.hpp"
-#include "RoadHandler.hpp"
+#include "Handler/AreaHandler.hpp"
+#include "Handler/BuildingHandler.hpp"
+#include "Handler/RoadHandler.hpp"
 
-#include "MemoryUsageHelper.hpp"
+#include "Utils/MemoryUsageHelper.hpp"
 
 #include <osmium/io/any_input.hpp>
 #include <osmium/handler/node_locations_for_ways.hpp>

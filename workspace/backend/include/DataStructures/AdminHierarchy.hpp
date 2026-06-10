@@ -1,4 +1,4 @@
-#include "AdminArea.hpp"
+#include "GeocoderObjects/AdminArea.hpp"
 #include <array>
 
 struct AdminHierarchy

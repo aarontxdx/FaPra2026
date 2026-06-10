@@ -1,4 +1,4 @@
-#include "Grid.hpp"
+#include "DataStructures/Grid.hpp"
 #include "iostream"
 
 Grid::Grid(double minLat, double minLon,

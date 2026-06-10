@@ -1,12 +1,14 @@
-#include <httplib.h>
+#include "DataStructures/Grid.hpp"
+#include "Geocoder.hpp"
 #include "PBFLoader.hpp"
 #include "PreProcessingUnit.hpp"
 #include "ReverseGeocoder.hpp"
-#include "UtilFunctions.hpp"
-#include "Grid.hpp"
+#include "Utils/UtilFunctions.hpp"
 
 #include <json.hpp>
 #include <iostream>
+
+#include <httplib.h>
 
 using json = nlohmann::json;
 using namespace geocoder::objects;
@@ -88,6 +90,22 @@ int main(int argc, char *argv[])
 
     std::cout << "\nReverse Geocoder is running....\n"
               << std::endl;
+
+    Geocoder geocoder{adminAreas, buildings, roads};
+
+    geocoder.createReverseIndex();
+
+    std::string queryString1{"Tübinger Straße 38 Deckenpfronn"};
+    auto objectList1 = geocoder.findQuery(queryString1);
+    std::string queryString2{"Tübinger Straße 38 Deckenpfronn"};
+    auto objectList2 = geocoder.findQuery(queryString2);
+
+    if (auto *b = std::get_if<Building *>(&objectList1[0].object))
+    {
+        std::cout << (*b)->street << ", " << (*b)->housenumber << "\n";
+    }
+
+    std::cout << objectList2.size() << std::endl;
 
     httplib::Server svr;
 

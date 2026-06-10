@@ -1,6 +1,7 @@
 #pragma once
 
-#include "UtilFunctions.hpp"
+#include "GeocoderObjects/Building.hpp"
+#include "Utils/UtilFunctions.hpp"
 
 #include <osmium/handler.hpp>
 #include <osmium/osm/way.hpp>
