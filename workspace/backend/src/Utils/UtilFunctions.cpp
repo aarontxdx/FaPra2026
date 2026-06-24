@@ -14,32 +14,58 @@ namespace
                p.lon <= std::get<1>(area.bb).lon;
     }
 
-    bool isPointInsidePolygon(const Point &p,
-                              const std::vector<std::vector<Point>> &polygon)
+    bool raycastRing(const Point &p, const std::vector<Point> &ring)
     {
         bool inside = false;
 
-        for (const std::vector<Point> &polygonPart : polygon)
+        size_t j = ring.size() - 1;
+
+        for (size_t i = 0; i < ring.size(); ++i)
         {
-            size_t j = polygonPart.size() - 1;
-            for (size_t i = 0; i < polygonPart.size(); ++i)
+            const Point &pi = ring[i];
+            const Point &pj = ring[j];
+
+            // fast reject (cheap check first)
+            if ((pi.lat > p.lat) == (pj.lat > p.lat))
             {
-                const Point &pi = polygonPart[i];
-                const Point &pj = polygonPart[j];
-
-                bool intersect =
-                    ((pi.lat > p.lat) != (pj.lat > p.lat)) &&
-                    (p.lon < (pj.lon - pi.lon) * (p.lat - pi.lat) /
-                                     (pj.lat - pi.lat + 1e-12) +
-                                 pi.lon);
-
-                if (intersect)
-                    inside = !inside;
-
                 j = i;
+                continue;
             }
+
+            double intersectLon =
+                (pj.lon - pi.lon) * (p.lat - pi.lat) /
+                    (pj.lat - pi.lat + 1e-12) +
+                pi.lon;
+
+            if (p.lon < intersectLon)
+                inside = !inside;
+
+            j = i;
         }
+
         return inside;
+    }
+
+    bool isPointInsidePolygon(const Point &p,
+                              const std::vector<std::vector<Point>> &polygon)
+    {
+        if (polygon.empty())
+            return false;
+
+        // 1. OUTER RING zuerst (meist index 0)
+        const auto &outer = polygon[0];
+
+        if (!raycastRing(p, outer))
+            return false;
+
+        // 2. HOLES prüfen (falls vorhanden)
+        for (size_t r = 1; r < polygon.size(); ++r)
+        {
+            if (raycastRing(p, polygon[r]))
+                return false;
+        }
+
+        return true;
     }
 }
 
