@@ -7,6 +7,7 @@
 
 #include <json.hpp>
 #include <iostream>
+#include <chrono>
 
 #include <httplib.h>
 
@@ -36,6 +37,80 @@ namespace
     bool isClockwise(const std::vector<Point> &ring)
     {
         return ringArea(ring) > 0;
+    }
+}
+
+namespace
+{
+    double getObjectLat(const SearchObject &obj)
+    {
+        if (const auto *building = std::get_if<Building *>(&obj))
+            return (*building)->centroid.lat;
+
+        if (const auto *road = std::get_if<Road *>(&obj))
+            return (*road)->nodes.empty() ? 0.0 : (*road)->nodes.front().lat;
+
+        if (const auto *area = std::get_if<AdminArea *>(&obj))
+        {
+            if ((*area)->area.empty())
+                return 0.0;
+
+            double lat = 0.0;
+            size_t count = 0;
+            for (const auto &ring : (*area)->area)
+            {
+                for (const auto &point : ring)
+                {
+                    lat += point.lat;
+                    ++count;
+                }
+            }
+            return count == 0 ? 0.0 : lat / count;
+        }
+
+        return 0.0;
+    }
+
+    double getObjectLon(const SearchObject &obj)
+    {
+        if (const auto *building = std::get_if<Building *>(&obj))
+            return (*building)->centroid.lon;
+
+        if (const auto *road = std::get_if<Road *>(&obj))
+            return (*road)->nodes.empty() ? 0.0 : (*road)->nodes.front().lon;
+
+        if (const auto *area = std::get_if<AdminArea *>(&obj))
+        {
+            if ((*area)->area.empty())
+                return 0.0;
+
+            double lon = 0.0;
+            size_t count = 0;
+            for (const auto &ring : (*area)->area)
+            {
+                for (const auto &point : ring)
+                {
+                    lon += point.lon;
+                    ++count;
+                }
+            }
+            return count == 0 ? 0.0 : lon / count;
+        }
+
+        return 0.0;
+    }
+
+    std::string getObjectName(const SearchObject &obj)
+    {
+        if (const auto *building = std::get_if<Building *>(&obj))
+        {
+            return (*building)->name.empty() ? (*building)->street : (*building)->name;
+        }
+        if (const auto *road = std::get_if<Road *>(&obj))
+            return (*road)->name;
+        if (const auto *area = std::get_if<AdminArea *>(&obj))
+            return (*area)->name;
+        return {};
     }
 }
 
@@ -357,6 +432,68 @@ int main(int argc, char *argv[])
      *
      * @return JSON representation of nearest object
      */
+    svr.Get("/geocode",
+            [&](const httplib::Request &req,
+                httplib::Response &res)
+            {
+                if (!req.has_param("query"))
+                {
+                    res.status = 400;
+                    res.set_content("Missing query parameter", "text/plain");
+                    return;
+                }
+
+                std::string query = req.get_param_value("query");
+                auto start = std::chrono::steady_clock::now();
+                auto results = geocoder.findQuery(query);
+                auto elapsedMs = std::chrono::duration<double, std::milli>(
+                                      std::chrono::steady_clock::now() - start)
+                                      .count();
+
+                json j;
+                j["query"] = query;
+                j["queryTimeMs"] = elapsedMs;
+                j["results"] = json::array();
+
+                size_t count = 0;
+                for (const auto &result : results)
+                {
+                    if (count++ >= 20)
+                        break;
+
+                    json item;
+                    item["score"] = result.score;
+                    item["name"] = getObjectName(result.object);
+                    item["type"] = std::holds_alternative<Building *>(result.object) ? "building"
+                                : std::holds_alternative<Road *>(result.object)   ? "road"
+                                                                                : "admin_area";
+                    item["lat"] = getObjectLat(result.object);
+                    item["lon"] = getObjectLon(result.object);
+
+                    if (const auto *building = std::get_if<Building *>(&result.object))
+                    {
+                        item["street"] = (*building)->street;
+                        item["housenumber"] = (*building)->housenumber;
+                        item["city"] = (*building)->city;
+                        item["postcode"] = (*building)->postcode;
+                    }
+                    else if (const auto *road = std::get_if<Road *>(&result.object))
+                    {
+                        item["city"] = (*road)->city;
+                        item["postcode"] = (*road)->postcode;
+                    }
+                    else if (const auto *area = std::get_if<AdminArea *>(&result.object))
+                    {
+                        item["adminLevel"] = (*area)->admin_level;
+                    }
+
+                    j["results"].push_back(item);
+                }
+
+                res.set_header("Access-Control-Allow-Origin", "*");
+                res.set_content(j.dump(), "application/json");
+            });
+
     svr.Get("/reverseGeocodeBuilding",
             [&](const httplib::Request &req,
                 httplib::Response &res)

@@ -163,6 +163,13 @@
 
         <br><br>
     </section>
+
+    <section id="forwardGeocoderSection">
+        <h3>Forward Geocoder</h3>
+        <input type="text" id="geocodeInput" placeholder="z. B. Hauptstrasse 10 Aalen" style="width:100%; box-sizing:border-box;">
+        <button onclick="runGeocodeQuery()" style="margin-top:0.5rem; width:100%;">Suchen</button>
+        <div id="geocodeResults" style="margin-top:0.75rem; font-size:0.9rem;"></div>
+    </section>
     </aside>
 
   <main id="map"></main>
@@ -177,6 +184,7 @@
   <script>
     const map = L.map('map').setView([48.7758, 9.1829], 13);
     var buildingThreshold = 1000;
+    const geocodeLayer = L.layerGroup().addTo(map);
     var adminThreshold = 10;
     var roadThreshold = 10000
     let mapMode = "browse";
@@ -548,6 +556,49 @@
             console.log("Keine gültige Zahl!");
         }
     }
+
+    async function runGeocodeQuery() {
+        const query = document.getElementById('geocodeInput').value.trim();
+        const resultsBox = document.getElementById('geocodeResults');
+
+        if (!query) {
+            resultsBox.innerHTML = '<i>Bitte einen Suchbegriff eingeben.</i>';
+            return;
+        }
+
+        geocodeLayer.clearLayers();
+        resultsBox.innerHTML = '<i>Suche läuft…</i>';
+
+        try {
+            const response = await fetch(`http://localhost:8080/geocode?query=${encodeURIComponent(query)}`);
+            const data = await response.json();
+
+            if (!data.results || data.results.length === 0) {
+                resultsBox.innerHTML = '<i>Keine Treffer gefunden.</i>';
+                return;
+            }
+
+            const items = data.results.map(result => {
+                const marker = L.marker([result.lat, result.lon]).bindPopup(`<strong>${result.name}</strong><br>${result.type}<br>${result.street || ''} ${result.housenumber || ''}`.trim());
+                geocodeLayer.addLayer(marker);
+                return `<div style="margin-bottom:0.5rem;"><strong>${result.name}</strong><br>${result.type} · Score ${result.score}</div>`;
+            });
+
+            resultsBox.innerHTML = items.join('');
+            if (data.results.length > 0) {
+                map.fitBounds(geocodeLayer.getBounds());
+            }
+        } catch (error) {
+            resultsBox.innerHTML = '<i>Fehler bei der Suche.</i>';
+            console.error(error);
+        }
+    }
+
+    document.getElementById('geocodeInput').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            runGeocodeQuery();
+        }
+    });
 
     function updateAdminLevel() {
         const index = Number(slider.value);

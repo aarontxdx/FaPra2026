@@ -9,6 +9,34 @@
 
 namespace
 {
+    struct SearchObjectHash
+    {
+        size_t operator()(const SearchObject &obj) const
+        {
+            if (const auto *p = std::get_if<AdminArea *>(&obj))
+            {
+                return std::hash<AdminArea *>()(*p);
+            }
+            if (const auto *p = std::get_if<Building *>(&obj))
+            {
+                return std::hash<Building *>()(*p);
+            }
+            if (const auto *p = std::get_if<Road *>(&obj))
+            {
+                return std::hash<Road *>()(*p);
+            }
+            return 0;
+        }
+    };
+
+    struct SearchObjectEqual
+    {
+        bool operator()(const SearchObject &lhs, const SearchObject &rhs) const
+        {
+            return lhs == rhs;
+        }
+    };
+
     //****************************************************************/
     //******************* String Preprocessing ***********************/
     //****************************************************************/
@@ -178,25 +206,22 @@ void Geocoder::normalize(std::string &textInput)
 
 std::vector<QueryResult> Geocoder::findQuery(std::string &inputText)
 {
-    // TODO: implementation
-    // TODO: return objects that are fitting to the query
     mQueryString = inputText;
     Geocoder::normalize(mQueryString);
 
     auto tokens = tokenize();
 
-    std::unordered_map<SearchObject, int> score;
+    std::unordered_map<SearchObject, int, SearchObjectHash, SearchObjectEqual> score;
 
     for (const auto &token : tokens)
     {
-        auto it = mIndex.find(token);
-
-        if (it == mIndex.end())
+        if (token.empty())
             continue;
 
-        for (const auto &obj : it->second)
+        const auto matches = extendedSearch(token);
+        for (const auto &obj : matches)
         {
-            score[obj] += 1; // simple TF scoring
+            score[obj] += 3;
         }
     }
 
@@ -208,7 +233,6 @@ std::vector<QueryResult> Geocoder::findQuery(std::string &inputText)
         results.push_back({obj, s});
     }
 
-    // sort depending on frequency
     std::sort(results.begin(), results.end(),
               [](const QueryResult &a, const QueryResult &b)
               {
@@ -250,29 +274,29 @@ std::vector<SearchObject>
 Geocoder::extendedSearch(const std::string &token)
 {
     std::vector<SearchObject> result;
-    /*
     std::string norm = token;
     normalize(norm);
 
-    // 1. Exact match (fast path)
+    if (norm.empty())
+        return result;
+
     auto it = mIndex.find(norm);
     if (it != mIndex.end())
     {
         result.insert(result.end(), it->second.begin(), it->second.end());
     }
 
-    // 2. Substring match (slow fallback)
     for (const auto &[key, values] : mIndex)
     {
         if (key == norm)
             continue;
 
-        if (key.find(norm) != std::string::npos)
+        if (key.rfind(norm, 0) == 0 || key.find(norm) != std::string::npos)
         {
             result.insert(result.end(), values.begin(), values.end());
         }
     }
-    */
+
     return result;
 }
 
