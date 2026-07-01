@@ -447,8 +447,8 @@ int main(int argc, char *argv[])
                 auto start = std::chrono::steady_clock::now();
                 auto results = geocoder.findQuery(query);
                 auto elapsedMs = std::chrono::duration<double, std::milli>(
-                                      std::chrono::steady_clock::now() - start)
-                                      .count();
+                                     std::chrono::steady_clock::now() - start)
+                                     .count();
 
                 json j;
                 j["query"] = query;
@@ -465,8 +465,8 @@ int main(int argc, char *argv[])
                     item["score"] = result.score;
                     item["name"] = getObjectName(result.object);
                     item["type"] = std::holds_alternative<Building *>(result.object) ? "building"
-                                : std::holds_alternative<Road *>(result.object)   ? "road"
-                                                                                : "admin_area";
+                                   : std::holds_alternative<Road *>(result.object)   ? "road"
+                                                                                     : "admin_area";
                     item["lat"] = getObjectLat(result.object);
                     item["lon"] = getObjectLon(result.object);
 
