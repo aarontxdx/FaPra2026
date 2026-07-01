@@ -184,7 +184,7 @@
   <script>
     const map = L.map('map').setView([48.7758, 9.1829], 13);
     var buildingThreshold = 1000;
-    const geocodeLayer = L.layerGroup().addTo(map);
+    const geocodeLayer = L.featureGroup().addTo(map);
     var adminThreshold = 10;
     var roadThreshold = 10000
     let mapMode = "browse";
@@ -585,7 +585,7 @@
             });
 
             resultsBox.innerHTML = items.join('');
-            if (data.results.length > 0) {
+            if (geocodeLayer.getLayers().length > 0) {
                 map.fitBounds(geocodeLayer.getBounds());
             }
         } catch (error) {

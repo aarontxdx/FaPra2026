@@ -1,6 +1,8 @@
 #!/bin/bash
+set -e
 
-URL="http://localhost:8000/frontend/WebView.html"
+cd "$(dirname "$0")" || exit 1
+URL="http://localhost:8000/WebView.html"
 
 python3 -m http.server 8000 &
 SERVER_PID=$!
@@ -13,4 +15,4 @@ else
     echo "Open manually: $URL"
 fi
 
-wait $SERVER_PID
+wait "$SERVER_PID"
