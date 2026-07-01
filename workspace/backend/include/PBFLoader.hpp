@@ -1,8 +1,8 @@
 #pragma once
 
-#include "AdminArea.hpp"
-#include "Building.hpp"
-#include "Road.hpp"
+#include "GeocoderObjects/AdminArea.hpp"
+#include "GeocoderObjects/Building.hpp"
+#include "GeocoderObjects/Road.hpp"
 
 #include <string>
 #include <vector>
@@ -14,9 +14,8 @@ public:
      * extract a given pbf file
      *
      * @param path file path of .pbf
-     *
-     * @return list of Buildings, Administration Areas and Roads
      */
-    std::tuple<std::vector<Building>, std::vector<AdminArea>, std::vector<Road>>
-    extractFile(const std::string &path);
+    void extractFile(std::vector<Building> &buildings,
+                     std::vector<AdminArea> &adminAreas,
+                     std::vector<Road> &roads, const std::string &path);
 };

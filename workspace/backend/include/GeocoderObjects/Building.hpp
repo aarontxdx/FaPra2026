@@ -1,18 +1,17 @@
 #pragma once
-#include <vector>
-#include <string>
 
+#include "AdminArea.hpp"
 #include "Point.hpp"
 
-struct Building
+#include <vector>
+
+struct Building : GeocoderObject
 {
     std::vector<Point> polygon;
     Point centroid;
 
     std::string housenumber;
     std::string street;
-    std::string postcode;
-    std::string city;
-    std::string country;
-    std::string name;
+
+    std::vector<AdminArea *> adminAreas;
 };

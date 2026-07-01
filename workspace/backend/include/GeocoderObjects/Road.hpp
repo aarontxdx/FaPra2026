@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Point.hpp"
+#include "GeocoderObject.hpp"
 
-#include <string>
 #include <vector>
 
 enum class RoadType
@@ -17,9 +17,8 @@ enum class RoadType
     Unknown
 };
 
-struct Road
+struct Road : GeocoderObject
 {
-    std::string name;
     RoadType type;
     int64_t id;
 

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "UtilFunctions.hpp"
+#include "GeocoderObjects/Building.hpp"
+#include "Utils/UtilFunctions.hpp"
 
 #include <osmium/handler.hpp>
 #include <osmium/osm/way.hpp>
@@ -31,7 +32,7 @@ public:
             if (!n.location().valid())
                 return;
 
-            poly.emplace_back(n.location().lon(), n.location().lat());
+            poly.emplace_back(n.location().lat(), n.location().lon());
         }
 
         if (poly.size() < 4)
@@ -48,12 +49,6 @@ public:
         b.postcode = tags.get_value_by_key("addr:postcode", "");
         b.city = tags.get_value_by_key("addr:city", "");
         b.country = tags.get_value_by_key("addr:country", "");
-
-        b.housenumber.shrink_to_fit();
-        b.street.shrink_to_fit();
-        b.postcode.shrink_to_fit();
-        b.city.shrink_to_fit();
-        b.country.shrink_to_fit();
 
         if (tags.has_key("name:de"))
             b.name = tags.get_value_by_key("name:de");

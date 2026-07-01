@@ -1,0 +1,134 @@
+#include "Utils/UtilFunctions.hpp"
+
+#include <iostream>
+#include <string>
+#include <tuple>
+
+namespace
+{
+    bool pointInBoundingBox(const Point &p, const AdminArea &area)
+    {
+        return p.lat >= std::get<0>(area.bb).lat &&
+               p.lat <= std::get<1>(area.bb).lat &&
+               p.lon >= std::get<0>(area.bb).lon &&
+               p.lon <= std::get<1>(area.bb).lon;
+    }
+
+    bool raycastRing(const Point &p, const std::vector<Point> &ring)
+    {
+        bool inside = false;
+
+        size_t j = ring.size() - 1;
+
+        for (size_t i = 0; i < ring.size(); ++i)
+        {
+            const Point &pi = ring[i];
+            const Point &pj = ring[j];
+
+            // fast reject (cheap check first)
+            if ((pi.lat > p.lat) == (pj.lat > p.lat))
+            {
+                j = i;
+                continue;
+            }
+
+            double intersectLon =
+                (pj.lon - pi.lon) * (p.lat - pi.lat) /
+                    (pj.lat - pi.lat + 1e-12) +
+                pi.lon;
+
+            if (p.lon < intersectLon)
+                inside = !inside;
+
+            j = i;
+        }
+
+        return inside;
+    }
+
+    bool isPointInsidePolygon(const Point &p,
+                              const std::vector<std::vector<Point>> &polygon)
+    {
+        if (polygon.empty())
+            return false;
+
+        // 1. OUTER RING zuerst (meist index 0)
+        const auto &outer = polygon[0];
+
+        if (!raycastRing(p, outer))
+            return false;
+
+        // 2. HOLES prüfen (falls vorhanden)
+        for (size_t r = 1; r < polygon.size(); ++r)
+        {
+            if (raycastRing(p, polygon[r]))
+                return false;
+        }
+
+        return true;
+    }
+}
+
+namespace helper
+{
+    Point computeCentroid(const std::vector<Point> &poly)
+    {
+        const size_t n = poly.size();
+        if (n < 3)
+            return {0.0, 0.0};
+
+        double A = 0.0;
+        double Cx = 0.0;
+        double Cy = 0.0;
+
+        for (size_t i = 0; i < n; ++i)
+        {
+            const auto &p1 = poly[i];
+            const auto &p2 = poly[(i + 1) % n];
+
+            double cross = p1.lat * p2.lon - p2.lat * p1.lon;
+
+            A += cross;
+            Cx += (p1.lon + p2.lon) * cross;
+            Cy += (p1.lat + p2.lat) * cross;
+        }
+
+        A *= 0.5;
+
+        if (std::abs(A) < 1e-12)
+        {
+            double sx = 0.0, sy = 0.0;
+            for (const auto &p : poly)
+            {
+                sy += p.lat;
+                sx += p.lon;
+            }
+            return {sx / n, sy / n};
+        }
+
+        Cx /= (6.0 * A);
+        Cy /= (6.0 * A);
+
+        return {Cx, Cy};
+    }
+
+    std::vector<const AdminArea *> pointInPolygon(
+        const Point &point,
+        const std::vector<AdminArea *> &areas)
+    {
+        std::vector<const AdminArea *> result;
+
+        for (const auto *area : areas)
+        {
+            if (!pointInBoundingBox(point, *area))
+                continue;
+
+            if (isPointInsidePolygon(point, area->area))
+            {
+                result.push_back(area);
+            }
+        }
+
+        return result;
+    }
+}

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Road.hpp"
+#include "GeocoderObjects/Road.hpp"
 #include <osmium/handler.hpp>
 #include <osmium/osm/way.hpp>
 
@@ -43,8 +43,8 @@ public:
             if (!n.location().valid())
                 return;
 
-            road.nodes.push_back({n.location().lon(),
-                                  n.location().lat()});
+            road.nodes.push_back({n.location().lat(),
+                                  n.location().lon()});
         }
 
         if (road.nodes.size() < 2)

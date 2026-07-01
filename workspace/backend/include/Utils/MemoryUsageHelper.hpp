@@ -1,6 +1,6 @@
-#include "Building.hpp"
-#include "AdminArea.hpp"
-#include "Road.hpp"
+#include "GeocoderObjects/Building.hpp"
+#include "GeocoderObjects/AdminArea.hpp"
+#include "GeocoderObjects/Road.hpp"
 
 #include <iostream>
 
@@ -19,18 +19,28 @@ namespace helper
      */
     inline size_t memoryUsage(const Building &b)
     {
-        size_t size = sizeof(b);
+        size_t size = 0;
+
+        // --- complete object itself ---
+        size += sizeof(Building);
+
+        // --- dynamically allocated string memory ---
+        size += b.name.capacity();
+
+        size += b.country.capacity();
+        size += b.state.capacity();
+        size += b.county.capacity();
+        size += b.city.capacity();
+        size += b.postcode.capacity();
 
         size += b.housenumber.capacity();
         size += b.street.capacity();
-        size += b.postcode.capacity();
-        size += b.city.capacity();
-        size += b.country.capacity();
-        size += b.name.capacity();
 
+        // --- polygon vector heap memory ---
         size += b.polygon.capacity() * sizeof(Point);
 
-        size += sizeof(b.centroid);
+        // --- adminAreas vector heap memory ---
+        size += b.adminAreas.capacity() * sizeof(AdminArea *);
 
         return size;
     }
@@ -40,13 +50,27 @@ namespace helper
      */
     inline size_t memoryUsage(const AdminArea &a)
     {
-        size_t size = sizeof(a);
+        size_t size = 0;
 
+        // --- complete object itself ---
+        size += sizeof(AdminArea);
+
+        // --- dynamically allocated string memory ---
         size += a.name.capacity();
+
+        size += a.country.capacity();
+        size += a.state.capacity();
+        size += a.county.capacity();
+        size += a.city.capacity();
+        size += a.postcode.capacity();
+
+        size += a.postal_code.capacity();
         size += a.boundary.capacity();
 
+        // --- outer vector heap memory ---
         size += a.area.capacity() * sizeof(std::vector<Point>);
 
+        // --- inner ring heap memory ---
         for (const auto &ring : a.area)
         {
             size += ring.capacity() * sizeof(Point);
@@ -60,10 +84,21 @@ namespace helper
      */
     inline size_t memoryUsage(const Road &r)
     {
-        size_t size = sizeof(r);
+        size_t size = 0;
 
+        // --- complete object itself ---
+        size += sizeof(Road);
+
+        // --- dynamically allocated string memory ---
         size += r.name.capacity();
 
+        size += r.country.capacity();
+        size += r.state.capacity();
+        size += r.county.capacity();
+        size += r.city.capacity();
+        size += r.postcode.capacity();
+
+        // --- nodes vector heap memory ---
         size += r.nodes.capacity() * sizeof(Point);
 
         return size;

@@ -3,11 +3,11 @@
 #include <iostream>
 #include <chrono>
 
-#include "AreaHandler.hpp"
-#include "BuildingHandler.hpp"
-#include "RoadHandler.hpp"
+#include "Handler/AreaHandler.hpp"
+#include "Handler/BuildingHandler.hpp"
+#include "Handler/RoadHandler.hpp"
 
-#include "MemoryUsageHelper.hpp"
+#include "Utils/MemoryUsageHelper.hpp"
 
 #include <osmium/io/any_input.hpp>
 #include <osmium/handler/node_locations_for_ways.hpp>
@@ -23,18 +23,17 @@
 
 using namespace osmium;
 
-std::tuple<std::vector<Building>, std::vector<AdminArea>, std::vector<Road>>
-PBFLoader::extractFile(const std::string &path)
+void PBFLoader::extractFile(
+    std::vector<Building> &buildings,
+    std::vector<AdminArea> &adminAreas,
+    std::vector<Road> &roads,
+    const std::string &path)
 {
     const bool DEBUG_MODE = true;
 
     std::cout << "Start load process\n";
 
     auto startTime = std::chrono::steady_clock::now();
-
-    std::vector<Building> buildings;
-    std::vector<AdminArea> adminAreas;
-    std::vector<Road> roads;
 
     using index_type = osmium::index::map::SparseMemArray<
         osmium::unsigned_object_id_type, osmium::Location>;
@@ -57,6 +56,7 @@ PBFLoader::extractFile(const std::string &path)
     // filter
     osmium::TagsFilter filter{false};
     filter.add_rule(true, "boundary", "administrative");
+    filter.add_rule(true, "boundary", "postal_code");
     filter.add_rule(true, "building", "*");
     filter.add_rule(true, "highway", "motorway");
     filter.add_rule(true, "highway", "trunk");
@@ -99,6 +99,4 @@ PBFLoader::extractFile(const std::string &path)
 
     std::cout << "Load process finished! \n\n";
     std::cout << "Total Load Time: " << applyDuration.count() << " s\n\n";
-
-    return {buildings, adminAreas, roads};
 }
