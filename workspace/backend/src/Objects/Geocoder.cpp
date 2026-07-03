@@ -211,7 +211,7 @@ std::vector<QueryResult> Geocoder::findQuery(std::string &inputText)
 
     auto tokens = tokenize();
 
-    std::unordered_map<SearchObject, int, SearchObjectHash, SearchObjectEqual> score;
+    std::unordered_map<SearchObject, double, SearchObjectHash, SearchObjectEqual> score;
 
     for (const auto &token : tokens)
     {
@@ -219,9 +219,9 @@ std::vector<QueryResult> Geocoder::findQuery(std::string &inputText)
             continue;
 
         const auto matches = extendedSearch(token);
-        for (const auto &obj : matches)
+        for (const auto &entry : matches)
         {
-            score[obj] += 3;
+            score[entry.object] += entry.weight;
         }
     }
 
@@ -270,10 +270,10 @@ std::vector<Token> Geocoder::tokenize()
     return tokens;
 }
 
-std::vector<SearchObject>
+std::vector<Geocoder::IndexEntry>
 Geocoder::extendedSearch(const std::string &token)
 {
-    std::vector<SearchObject> result;
+    std::vector<IndexEntry> result;
     std::string norm = token;
     normalize(norm);
 
@@ -283,7 +283,10 @@ Geocoder::extendedSearch(const std::string &token)
     auto it = mIndex.find(norm);
     if (it != mIndex.end())
     {
-        result.insert(result.end(), it->second.begin(), it->second.end());
+        for (const auto &entry : it->second)
+        {
+            result.push_back({entry.object, entry.weight * 12 + 60});
+        }
     }
 
     for (const auto &[key, values] : mIndex)
@@ -291,9 +294,19 @@ Geocoder::extendedSearch(const std::string &token)
         if (key == norm)
             continue;
 
-        if (key.rfind(norm, 0) == 0 || key.find(norm) != std::string::npos)
+        bool prefix = key.rfind(norm, 0) == 0;
+        bool substring = key.find(norm) != std::string::npos;
+        if (prefix || substring)
         {
-            result.insert(result.end(), values.begin(), values.end());
+            for (const auto &entry : values)
+            {
+                int bonus = entry.weight;
+                if (prefix)
+                    bonus += 12;
+                else if (substring)
+                    bonus += 5;
+                result.push_back({entry.object, bonus});
+            }
         }
     }
 

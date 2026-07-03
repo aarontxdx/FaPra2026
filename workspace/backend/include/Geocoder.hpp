@@ -2,6 +2,8 @@
 #include "GeocoderObjects/Building.hpp"
 #include "GeocoderObjects/Road.hpp"
 
+#include <string>
+#include <vector>
 #include <variant>
 #include <unordered_map>
 
@@ -12,7 +14,7 @@ using Token = std::string;
 struct QueryResult
 {
     SearchObject object;
-    int score;
+    double score;
 };
 
 class Geocoder
@@ -41,10 +43,16 @@ private:
      */
     std::vector<Token> tokenize();
 
+    struct IndexEntry
+    {
+        SearchObject object;
+        int weight;
+    };
+
     /**
      * connect token which belong together
      */
-    std::vector<SearchObject> extendedSearch(const std::string &token);
+    std::vector<IndexEntry> extendedSearch(const std::string &token);
 
     /**
      * add string text as key
@@ -53,14 +61,15 @@ private:
     template <typename T>
     void addToken(
         std::string text,
-        T *object)
+        T *object,
+        int weight = 1)
     {
         if (text.empty())
             return;
 
         normalize(text);
 
-        mIndex[text].push_back(object);
+        mIndex[text].push_back(IndexEntry{object, weight});
     }
 
     /**
@@ -74,7 +83,7 @@ private:
     std::vector<Building> mBuildings;
     std::vector<Road> mRoads;
 
-    std::unordered_map<std::string, std::vector<SearchObject>> mIndex;
+    std::unordered_map<std::string, std::vector<IndexEntry>> mIndex;
 
     // member reverse index
 

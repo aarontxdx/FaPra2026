@@ -82,6 +82,7 @@
     <div class="tabs">
         <button class="tab active" data-tab="osm">OSM Data</button>
         <button class="tab" data-tab="reverse">Reverse Geocoder</button>
+        <button class="tab" data-tab="forward">Forward Geocoder</button>
     </div>
 
     <hr>
@@ -164,10 +165,16 @@
         <br><br>
     </section>
 
-    <section id="forwardGeocoderSection">
+    <section id="forwardGeocoderSection" style="display:none;">
         <h3>Forward Geocoder</h3>
         <input type="text" id="geocodeInput" placeholder="z. B. Hauptstrasse 10 Aalen" style="width:100%; box-sizing:border-box;">
-        <button onclick="runGeocodeQuery()" style="margin-top:0.5rem; width:100%;">Suchen</button>
+        <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+            <select id="indexSelect" style="flex:1;">
+                <option value="legacy">Legacy (current)</option>
+                <option value="ngram">NGram (fuzzy)</option>
+            </select>
+            <button onclick="runGeocodeQuery()" style="width:140px;">Suchen</button>
+        </div>
         <div id="geocodeResults" style="margin-top:0.75rem; font-size:0.9rem;"></div>
     </section>
     </aside>
@@ -194,6 +201,7 @@
     const tabs = document.querySelectorAll(".tab");
     const osmSection = document.getElementById("osmSection");
     const reverseSection = document.getElementById("reverseSection");
+    const forwardSection = document.getElementById("forwardGeocoderSection");
 
     const buildingLayer = L.layerGroup();
     const adminLayer = L.layerGroup();
@@ -230,20 +238,23 @@
             const mode = tab.dataset.tab;
 
             if (mode === "osm") {
-
                 mapMode = "browse";
-
                 osmSection.style.display = "block";
                 reverseSection.style.display = "none";
-
+                forwardSection.style.display = "none";
                 map.closePopup();
-
-            } else {
-
+            }
+            else if (mode === "reverse") {
                 mapMode = "reverse_geocode";
-
                 osmSection.style.display = "none";
                 reverseSection.style.display = "block";
+                forwardSection.style.display = "none";
+            }
+            else if (mode === "forward") {
+                mapMode = "browse";
+                osmSection.style.display = "none";
+                reverseSection.style.display = "none";
+                forwardSection.style.display = "block";
             }
         });
     });
@@ -570,18 +581,54 @@
         resultsBox.innerHTML = '<i>Suche läuft…</i>';
 
         try {
-            const response = await fetch(`http://localhost:8080/geocode?query=${encodeURIComponent(query)}`);
+            const index = document.getElementById('indexSelect').value || 'legacy';
+            const response = await fetch(`http://localhost:8080/search?query=${encodeURIComponent(query)}&index=${index}`);
             const data = await response.json();
 
-            if (!data.results || data.results.length === 0) {
+            const results = (data.results && Array.isArray(data.results)) ? data.results : data;
+
+            if (!results || results.length === 0) {
                 resultsBox.innerHTML = '<i>Keine Treffer gefunden.</i>';
                 return;
             }
 
-            const items = data.results.map(result => {
-                const marker = L.marker([result.lat, result.lon]).bindPopup(`<strong>${result.name}</strong><br>${result.type}<br>${result.street || ''} ${result.housenumber || ''}`.trim());
+            const items = results.map(result => {
+                // support legacy geocode shape (lat/lon) and search shape (centroid [lon,lat])
+                let lat = result.lat, lon = result.lon;
+                if ((!lat && !lon) && result.centroid && Array.isArray(result.centroid)) {
+                    lon = result.centroid[0];
+                    lat = result.centroid[1];
+                }
+
+                const addressParts = [result.street, result.housenumber].filter(Boolean).join(' ');
+                const locationParts = [result.city, result.postcode].filter(Boolean).join(', ');
+                const details = [addressParts, locationParts, result.county, result.state, result.country]
+                    .filter(Boolean)
+                    .join('<br>');
+
+                const popupContent = [`<strong>${result.name}</strong>`,
+                    result.type || '',
+                    addressParts,
+                    locationParts,
+                    result.county,
+                    result.state,
+                    result.country]
+                    .filter(Boolean)
+                    .join('<br>');
+
+                const marker = L.marker([lat, lon]).bindPopup(popupContent);
                 geocodeLayer.addLayer(marker);
-                return `<div style="margin-bottom:0.5rem;"><strong>${result.name}</strong><br>${result.type} · Score ${result.score}</div>`;
+
+                return `<div style="margin-bottom:0.75rem;">
+                    <strong>${result.name}</strong><br>
+                    ${result.type || ''}<br>
+                    ${addressParts ? addressParts + '<br>' : ''}
+                    ${locationParts ? locationParts + '<br>' : ''}
+                    ${result.county ? result.county + '<br>' : ''}
+                    ${result.state ? result.state + '<br>' : ''}
+                    ${result.country ? result.country + '<br>' : ''}
+                    <small>Score: ${Math.round((result.score||0)*100)/100}</small>
+                </div>`;
             });
 
             resultsBox.innerHTML = items.join('');
