@@ -252,8 +252,6 @@ void Geocoder::createReverseIndex()
 
     for (auto &road : mRoads)
         index(road);
-
-    std::cout << mIndex.size() << std::endl;
 }
 
 std::vector<Token> Geocoder::tokenize()

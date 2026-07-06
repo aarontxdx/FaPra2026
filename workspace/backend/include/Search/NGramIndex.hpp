@@ -21,6 +21,7 @@ namespace geocoder
         private:
             size_t n_;
             std::vector<std::string> records_;
+            std::vector<size_t> gram_counts_;
             std::unordered_map<std::string, std::vector<size_t>> index_;
         };
 

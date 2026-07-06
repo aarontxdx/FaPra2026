@@ -114,6 +114,83 @@ namespace
             return (*area)->name;
         return {};
     }
+
+    std::vector<std::string> makeBuildingSearchRecords(const std::vector<Building> &items)
+    {
+        std::vector<std::string> records;
+        records.reserve(items.size());
+
+        for (const auto &building : items)
+        {
+            std::ostringstream ss;
+            if (!building.street.empty())
+                ss << building.street << ' ';
+            if (!building.housenumber.empty())
+                ss << building.housenumber << ' ';
+            if (!building.city.empty())
+                ss << building.city;
+            records.push_back(ss.str());
+        }
+
+        return records;
+    }
+
+    json makeSearchResultJson(const SearchObject &obj, double score)
+    {
+        json item;
+        item["score"] = score;
+        item["name"] = getObjectName(obj);
+        item["type"] = std::holds_alternative<Building *>(obj) ? "building"
+                       : std::holds_alternative<Road *>(obj)   ? "road"
+                                                               : "admin_area";
+        item["lat"] = getObjectLat(obj);
+        item["lon"] = getObjectLon(obj);
+
+        if (const auto *building = std::get_if<Building *>(&obj))
+        {
+            item["street"] = (*building)->street;
+            item["housenumber"] = (*building)->housenumber;
+            item["city"] = (*building)->city;
+            item["postcode"] = (*building)->postcode;
+            item["county"] = (*building)->county;
+            item["state"] = (*building)->state;
+            item["country"] = (*building)->country;
+        }
+        else if (const auto *road = std::get_if<Road *>(&obj))
+        {
+            item["city"] = (*road)->city;
+            item["postcode"] = (*road)->postcode;
+        }
+        else if (const auto *area = std::get_if<AdminArea *>(&obj))
+        {
+            item["adminLevel"] = (*area)->admin_level;
+            item["city"] = (*area)->city;
+            item["postcode"] = (*area)->postcode;
+            item["county"] = (*area)->county;
+            item["state"] = (*area)->state;
+            item["country"] = (*area)->country;
+        }
+
+        return item;
+    }
+
+    json makeBuildingResultJson(const Building &building, double score)
+    {
+        json item;
+        item["score"] = score;
+        item["name"] = building.name.empty() ? building.street : building.name;
+        item["type"] = "building";
+        item["lat"] = building.centroid.lat;
+        item["lon"] = building.centroid.lon;
+        item["street"] = building.street;
+        item["housenumber"] = building.housenumber;
+        item["city"] = building.city;
+        item["postcode"] = building.postcode;
+        item["county"] = building.county;
+        item["state"] = building.state;
+        item["country"] = building.country;
+        return item;
+    }
 }
 
 int main(int argc, char *argv[])
@@ -172,78 +249,9 @@ int main(int argc, char *argv[])
 
     geocoder.createReverseIndex();
 
-    auto makeBuildingSearchRecords = [&](const std::vector<Building> &items)
-    {
-        std::vector<std::string> records;
-        records.reserve(items.size());
-        for (const auto &b : items)
-        {
-            std::ostringstream ss;
-            if (!b.street.empty())
-                ss << b.street << ' ';
-            if (!b.housenumber.empty())
-                ss << b.housenumber << ' ';
-            if (!b.city.empty())
-                ss << b.city;
-            records.push_back(ss.str());
-        }
-        return records;
-    };
-
-    auto buildingRecords = makeBuildingSearchRecords(buildings);
+    const auto buildingRecords = makeBuildingSearchRecords(buildings);
     std::unique_ptr<geocoder::search::SearchIndex> ngramIndex = std::make_unique<geocoder::search::NGramIndex>(3);
     ngramIndex->build(buildingRecords);
-
-    std::string queryString1{"Tübinger Straße 38 Deckenpfronn"};
-    auto objectList1 = geocoder.findQuery(queryString1);
-    std::string queryString2{"Tübinger Straße 38 Deckenpfronn"};
-    auto objectList2 = geocoder.findQuery(queryString2);
-
-    if (auto *b = std::get_if<Building *>(&objectList1[0].object))
-    {
-        std::cout << (*b)->street << ", " << (*b)->housenumber << "\n";
-    }
-
-    std::cout << objectList2.size() << std::endl;
-
-    auto makeSearchResult = [&](const SearchObject &obj, double score)
-    {
-        json item;
-        item["score"] = score;
-        item["name"] = getObjectName(obj);
-        item["type"] = std::holds_alternative<Building *>(obj) ? "building"
-                       : std::holds_alternative<Road *>(obj)   ? "road"
-                                                               : "admin_area";
-        item["lat"] = getObjectLat(obj);
-        item["lon"] = getObjectLon(obj);
-
-        if (const auto *building = std::get_if<Building *>(&obj))
-        {
-            item["street"] = (*building)->street;
-            item["housenumber"] = (*building)->housenumber;
-            item["city"] = (*building)->city;
-            item["postcode"] = (*building)->postcode;
-            item["county"] = (*building)->county;
-            item["state"] = (*building)->state;
-            item["country"] = (*building)->country;
-        }
-        else if (const auto *road = std::get_if<Road *>(&obj))
-        {
-            item["city"] = (*road)->city;
-            item["postcode"] = (*road)->postcode;
-        }
-        else if (const auto *area = std::get_if<AdminArea *>(&obj))
-        {
-            item["adminLevel"] = (*area)->admin_level;
-            item["city"] = (*area)->city;
-            item["postcode"] = (*area)->postcode;
-            item["county"] = (*area)->county;
-            item["state"] = (*area)->state;
-            item["country"] = (*area)->country;
-        }
-
-        return item;
-    };
 
     httplib::Server svr;
 
@@ -524,33 +532,7 @@ int main(int argc, char *argv[])
                     if (count++ >= 20)
                         break;
 
-                    json item;
-                    item["score"] = result.score;
-                    item["name"] = getObjectName(result.object);
-                    item["type"] = std::holds_alternative<Building *>(result.object) ? "building"
-                                   : std::holds_alternative<Road *>(result.object)   ? "road"
-                                                                                     : "admin_area";
-                    item["lat"] = getObjectLat(result.object);
-                    item["lon"] = getObjectLon(result.object);
-
-                    if (const auto *building = std::get_if<Building *>(&result.object))
-                    {
-                        item["street"] = (*building)->street;
-                        item["housenumber"] = (*building)->housenumber;
-                        item["city"] = (*building)->city;
-                        item["postcode"] = (*building)->postcode;
-                    }
-                    else if (const auto *road = std::get_if<Road *>(&result.object))
-                    {
-                        item["city"] = (*road)->city;
-                        item["postcode"] = (*road)->postcode;
-                    }
-                    else if (const auto *area = std::get_if<AdminArea *>(&result.object))
-                    {
-                        item["adminLevel"] = (*area)->admin_level;
-                    }
-
-                    j["results"].push_back(item);
+                    j["results"].push_back(makeSearchResultJson(result.object, result.score));
                 }
 
                 res.set_header("Access-Control-Allow-Origin", "*");
@@ -722,48 +704,44 @@ int main(int argc, char *argv[])
     // Simple search endpoint using either legacy brute-force or ngram index
     svr.Get("/search", [&](const httplib::Request &req, httplib::Response &res)
             {
-        if (!req.has_param("query")) {
-            res.status = 400;
-            res.set_content("Missing query parameter", "text/plain");
-            return;
-        }
-        std::string q = req.get_param_value("query");
-        std::string indexType = "legacy";
-        if (req.has_param("index")) indexType = req.get_param_value("index");
-        int maxResults = 20;
-        if (req.has_param("maxResults")) maxResults = std::stoi(req.get_param_value("maxResults"));
+                if (!req.has_param("query"))
+                {
+                    res.status = 400;
+                    res.set_content("Missing query parameter", "text/plain");
+                    return;
+                }
 
-        json out = json::array();
+                std::string query = req.get_param_value("query");
+                std::string indexType = "legacy";
+                if (req.has_param("index"))
+                    indexType = req.get_param_value("index");
 
-        if (indexType == "ngram") {
-            auto hits = ngramIndex->query(q, maxResults);
-            for (const auto &h : hits) {
-                const auto &b = buildings[h.id];
-                json item;
-                item["score"] = h.score;
-                item["name"] = b.name;
-                item["type"] = "building";
-                item["lat"] = b.centroid.lat;
-                item["lon"] = b.centroid.lon;
-                item["street"] = b.street;
-                item["housenumber"] = b.housenumber;
-                item["city"] = b.city;
-                item["postcode"] = b.postcode;
-                item["county"] = b.county;
-                item["state"] = b.state;
-                item["country"] = b.country;
-                out.push_back(item);
-            }
-        } else {
-            auto results = geocoder.findQuery(q);
-            for (size_t i = 0; i < results.size() && i < static_cast<size_t>(maxResults); ++i) {
-                const auto &result = results[i];
-                out.push_back(makeSearchResult(result.object, result.score));
-            }
-        }
+                int maxResults = 20;
+                if (req.has_param("maxResults"))
+                    maxResults = std::stoi(req.get_param_value("maxResults"));
 
-        res.set_header("Access-Control-Allow-Origin", "*");
-        res.set_content(out.dump(), "application/json"); });
+                json out = json::array();
+
+                if (indexType == "ngram")
+                {
+                    const auto hits = ngramIndex->query(query, maxResults);
+                    for (const auto &hit : hits)
+                    {
+                        out.push_back(makeBuildingResultJson(buildings[hit.id], hit.score));
+                    }
+                }
+                else
+                {
+                    auto results = geocoder.findQuery(query);
+                    for (size_t i = 0; i < results.size() && i < static_cast<size_t>(maxResults); ++i)
+                    {
+                        const auto &result = results[i];
+                        out.push_back(makeSearchResultJson(result.object, result.score));
+                    }
+                }
+
+                res.set_header("Access-Control-Allow-Origin", "*");
+                res.set_content(out.dump(), "application/json"); });
 
     svr.listen("0.0.0.0", 8080);
 }
