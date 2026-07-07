@@ -95,3 +95,27 @@ std::vector<SearchHit> NGramIndex::query(const std::string &q, int maxResults)
         results.resize(maxResults);
     return results;
 }
+
+size_t geocoder::search::NGramIndex::memoryUsage() const
+{
+    size_t total = sizeof(NGramIndex);
+
+    // records_
+    total += records_.capacity() * sizeof(std::string);
+    for (const auto &s : records_)
+        total += s.capacity();
+
+    // gram_counts_
+    total += gram_counts_.capacity() * sizeof(size_t);
+
+    // unordered_map
+    total += index_.size() * sizeof(decltype(index_)::value_type);
+
+    for (const auto &[gram, postings] : index_)
+    {
+        total += gram.capacity();
+        total += postings.capacity() * sizeof(size_t);
+    }
+
+    return total;
+}

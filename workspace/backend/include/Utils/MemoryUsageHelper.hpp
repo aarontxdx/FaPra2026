@@ -1,30 +1,39 @@
+#pragma once
+
 #include "GeocoderObjects/Building.hpp"
 #include "GeocoderObjects/AdminArea.hpp"
 #include "GeocoderObjects/Road.hpp"
 
+#include <iomanip>
 #include <iostream>
+#include <string>
+#include <vector>
 
 namespace helper
 {
-    /**
-     * calculates memory usage of a single point
-     */
-    inline size_t memoryUsage(const Point &p)
+
+    // =======================================================
+    // Utility
+    // =======================================================
+
+    inline double toMB(size_t bytes)
     {
-        return sizeof(p);
+        return static_cast<double>(bytes) / (1024.0 * 1024.0);
     }
 
-    /**
-     * calculates memory usage of a single building
-     */
+    // =======================================================
+    // Single Objects
+    // =======================================================
+
+    inline size_t memoryUsage(const Point &p)
+    {
+        return sizeof(Point);
+    }
+
     inline size_t memoryUsage(const Building &b)
     {
-        size_t size = 0;
+        size_t size = sizeof(Building);
 
-        // --- complete object itself ---
-        size += sizeof(Building);
-
-        // --- dynamically allocated string memory ---
         size += b.name.capacity();
 
         size += b.country.capacity();
@@ -36,26 +45,16 @@ namespace helper
         size += b.housenumber.capacity();
         size += b.street.capacity();
 
-        // --- polygon vector heap memory ---
         size += b.polygon.capacity() * sizeof(Point);
-
-        // --- adminAreas vector heap memory ---
         size += b.adminAreas.capacity() * sizeof(AdminArea *);
 
         return size;
     }
 
-    /**
-     * calculates memory usage of a single administration area
-     */
     inline size_t memoryUsage(const AdminArea &a)
     {
-        size_t size = 0;
+        size_t size = sizeof(AdminArea);
 
-        // --- complete object itself ---
-        size += sizeof(AdminArea);
-
-        // --- dynamically allocated string memory ---
         size += a.name.capacity();
 
         size += a.country.capacity();
@@ -67,29 +66,18 @@ namespace helper
         size += a.postal_code.capacity();
         size += a.boundary.capacity();
 
-        // --- outer vector heap memory ---
         size += a.area.capacity() * sizeof(std::vector<Point>);
 
-        // --- inner ring heap memory ---
         for (const auto &ring : a.area)
-        {
             size += ring.capacity() * sizeof(Point);
-        }
 
         return size;
     }
 
-    /**
-     * calculates memory usage of a single road
-     */
     inline size_t memoryUsage(const Road &r)
     {
-        size_t size = 0;
+        size_t size = sizeof(Road);
 
-        // --- complete object itself ---
-        size += sizeof(Road);
-
-        // --- dynamically allocated string memory ---
         size += r.name.capacity();
 
         size += r.country.capacity();
@@ -98,79 +86,119 @@ namespace helper
         size += r.city.capacity();
         size += r.postcode.capacity();
 
-        // --- nodes vector heap memory ---
         size += r.nodes.capacity() * sizeof(Point);
 
         return size;
     }
 
-    /**
-     * print memory usage of buildings, administration areas and roads
-     *
-     * @param buildings list of buildings with unknown memory
-     * @param adminAreas list of administration areas with unknown memory
-     * @param roads list of roads with unknown memory
-     */
-    inline void printMemoryUsage(std::vector<Building> &buildings, std::vector<AdminArea> &adminAreas, std::vector<Road> &roads)
+    // =======================================================
+    // Generic Vector Memory
+    // =======================================================
+
+    template <typename T>
+    inline size_t memoryUsage(const std::vector<T> &vec)
     {
-        size_t totalBuildings = 0;
-        size_t totalAdminAreas = 0;
-        size_t totalRoads = 0;
+        size_t total = vec.capacity() * sizeof(T);
 
-        // Buildings
-        for (const auto &b : buildings)
-            totalBuildings += memoryUsage(b);
+        for (const auto &e : vec)
+            total += memoryUsage(e) - sizeof(T);
 
-        // AdminAreas
-        for (const auto &a : adminAreas)
-            totalAdminAreas += memoryUsage(a);
-
-        // Roads
-        for (const auto &r : roads)
-            totalRoads += memoryUsage(r);
-
-        std::cout << "Buildings: " << buildings.size() << "\n"
-                  << "Areas: " << adminAreas.size() << "\n"
-                  << "Roads: " << roads.size() << "\n\n"
-                  << "Memory usage:\n"
-                  << "Buildings: " << totalBuildings / (1024.0 * 1024.0) << " MB\n"
-                  << "Admin areas: " << totalAdminAreas / (1024.0 * 1024.0) << " MB\n"
-                  << "Roads: " << totalRoads / (1024.0 * 1024.0) << " MB\n\n";
+        return total;
     }
 
-    /**
-     * print memory usage of buildings
-     *
-     * @param buildings list of buildings with unknown memory
-     * @param message extra console output
-     */
-    inline void printMemoryUsageBuildings(std::vector<Building> &buildings, const std::string &message)
+    // =======================================================
+    // Generic Printer
+    // =======================================================
+
+    template <typename T>
+    inline void printMemoryUsage(const std::vector<T> &vec,
+                                 const std::string &name)
     {
-        size_t totalMemory = 0;
+        std::cout << "\n";
+        std::cout << name << "\n";
+        std::cout << "----------------------------------------\n";
+        std::cout << "Count  : " << vec.size() << "\n";
+        std::cout << "Memory : "
+                  << std::fixed
+                  << std::setprecision(2)
+                  << toMB(memoryUsage(vec))
+                  << " MB\n";
+    }
 
-        for (const auto &b : buildings)
-            totalMemory += memoryUsage(b);
+    // =======================================================
+    // Complete Summary
+    // =======================================================
 
+    inline void printMemoryUsage(const std::vector<Building> &buildings,
+                                 const std::vector<AdminArea> &adminAreas,
+                                 const std::vector<Road> &roads)
+    {
+        size_t buildingMemory = memoryUsage(buildings);
+        size_t adminMemory = memoryUsage(adminAreas);
+        size_t roadMemory = memoryUsage(roads);
+
+        std::cout << "\n";
+        std::cout << "========================================\n";
+        std::cout << "Memory Summary\n";
+        std::cout << "========================================\n\n";
+
+        std::cout << std::left
+                  << std::setw(18) << "Buildings"
+                  << std::setw(12) << buildings.size()
+                  << std::fixed << std::setprecision(2)
+                  << toMB(buildingMemory) << " MB\n";
+
+        std::cout << std::left
+                  << std::setw(18) << "Admin Areas"
+                  << std::setw(12) << adminAreas.size()
+                  << toMB(adminMemory) << " MB\n";
+
+        std::cout << std::left
+                  << std::setw(18) << "Roads"
+                  << std::setw(12) << roads.size()
+                  << toMB(roadMemory) << " MB\n";
+
+        std::cout << "----------------------------------------\n";
+
+        std::cout << std::left
+                  << std::setw(30) << "Total"
+                  << toMB(buildingMemory + adminMemory + roadMemory)
+                  << " MB\n\n";
+    }
+
+    inline void printMemoryUsageBuildings(
+        const std::vector<Building> &buildings,
+        const std::string &title)
+    {
         std::cout << "\n"
-                  << message << "\nBuildings: " << buildings.size() << "\n"
-                  << "Buildings: " << totalMemory / (1024.0 * 1024.0) << " MB\n";
+                  << title << "\n";
+        std::cout << "Count: " << buildings.size() << "\n";
+        std::cout << "Memory: "
+                  << memoryUsage(buildings) / (1024.0 * 1024.0)
+                  << " MB\n";
     }
 
-    /**
-     * print memory usage of roads
-     *
-     * @param roads list of roads with unknown memory
-     * @param message extra console output
-     */
-    inline void printMemoryUsageRoads(std::vector<Road> &roads, const std::string &message)
+    inline void printMemoryUsageRoads(
+        const std::vector<Road> &roads,
+        const std::string &title)
     {
-        size_t totalMemory = 0;
-
-        for (const auto &r : roads)
-            totalMemory += memoryUsage(r);
-
         std::cout << "\n"
-                  << message << "\nRoads: " << roads.size() << "\n"
-                  << "Roads: " << totalMemory / (1024.0 * 1024.0) << " MB\n";
+                  << title << "\n";
+        std::cout << "Count: " << roads.size() << "\n";
+        std::cout << "Memory: "
+                  << memoryUsage(roads) / (1024.0 * 1024.0)
+                  << " MB\n";
     }
-}
+
+    inline void printMemoryUsageAdminAreas(
+        const std::vector<AdminArea> &areas,
+        const std::string &title)
+    {
+        std::cout << "\n"
+                  << title << "\n";
+        std::cout << "Count: " << areas.size() << "\n";
+        std::cout << "Memory: "
+                  << memoryUsage(areas) / (1024.0 * 1024.0)
+                  << " MB\n";
+    }
+} // namespace helper

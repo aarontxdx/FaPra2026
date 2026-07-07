@@ -4,6 +4,7 @@
 #include <cctype>
 #include <regex>
 
+#include <chrono>
 #include <iostream>
 #include <sstream>
 
@@ -154,7 +155,10 @@ Geocoder::Geocoder(std::vector<AdminArea> &adminAreas,
                    std::vector<Road> &roads)
     : mAdminAreas(adminAreas),
       mBuildings(buildings),
-      mRoads(roads) {}
+      mRoads(roads),
+      mNGramIndex(std::make_unique<geocoder::search::NGramIndex>(3))
+{
+}
 
 void Geocoder::normalize(std::string &textInput)
 {
@@ -204,54 +208,97 @@ void Geocoder::normalize(std::string &textInput)
     }
 }
 
-std::vector<QueryResult> Geocoder::findQuery(std::string &inputText)
+std::vector<QueryResult> Geocoder::findQuery(
+    std::string input,
+    SearchMode mode)
 {
-    mQueryString = inputText;
-    Geocoder::normalize(mQueryString);
+    normalize(input);
 
-    auto tokens = tokenize();
-
-    std::unordered_map<SearchObject, double, SearchObjectHash, SearchObjectEqual> score;
-
-    for (const auto &token : tokens)
+    switch (mode)
     {
-        if (token.empty())
-            continue;
+    case SearchMode::ReverseIndex:
+        return searchReverseIndex(input);
 
-        const auto matches = extendedSearch(token);
-        for (const auto &entry : matches)
-        {
-            score[entry.object] += entry.weight;
-        }
+    case SearchMode::NGram:
+        return searchNGram(input);
+
+    case SearchMode::Combined:
+    {
+        auto reverse = searchReverseIndex(input);
+        auto ngram = searchNGram(input);
+
+        return mergeResults(reverse, ngram);
+    }
     }
 
-    std::vector<QueryResult> results;
-    results.reserve(score.size());
-
-    for (const auto &[obj, s] : score)
-    {
-        results.push_back({obj, s});
-    }
-
-    std::sort(results.begin(), results.end(),
-              [](const QueryResult &a, const QueryResult &b)
-              {
-                  return a.score > b.score;
-              });
-
-    return results;
+    return {};
 }
 
 void Geocoder::createReverseIndex()
 {
+    auto start = std::chrono::steady_clock::now();
+
+    std::cout << "ReverseIndex build for areas..." << std::endl;
     for (auto &area : mAdminAreas)
         index(area);
 
+    std::cout << "ReverseIndex build for buildings..." << std::endl;
     for (auto &building : mBuildings)
         index(building);
 
+    std::cout << "ReverseIndex build for roads..." << std::endl;
     for (auto &road : mRoads)
         index(road);
+
+    auto end = std::chrono::steady_clock::now();
+    auto totalTime = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    std::cout << "createReverseIndex total duration: "
+              << totalTime.count() << " ms\n"
+              << std::endl;
+}
+
+void Geocoder::createNGramIndex()
+{
+    auto start = std::chrono::steady_clock::now();
+
+    std::cout << "NGramIndex build for buildings..." << std::endl;
+
+    std::vector<std::string> records;
+    records.reserve(mBuildings.size());
+
+    for (const auto &building : mBuildings)
+    {
+        std::ostringstream ss;
+
+        if (!building.street.empty())
+            ss << building.street << ' ';
+
+        if (!building.housenumber.empty())
+            ss << building.housenumber << ' ';
+
+        if (!building.city.empty())
+            ss << building.city;
+
+        records.push_back(ss.str());
+    }
+
+    std::cout << "Creating NGram records: "
+              << records.size()
+              << std::endl;
+
+    mNGramIndex->build(records);
+
+    auto end = std::chrono::steady_clock::now();
+
+    auto totalTime =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            end - start);
+
+    std::cout << "createNGramIndex total duration: "
+              << totalTime.count()
+              << " ms\n"
+              << std::endl;
 }
 
 std::vector<Token> Geocoder::tokenize()
@@ -337,6 +384,94 @@ void Geocoder::index(Building &b)
     addToken(b.postcode, &b);
 }
 
+std::vector<QueryResult> Geocoder::searchReverseIndex(
+    const std::string &inputText)
+{
+    mQueryString = inputText;
+
+    auto tokens = tokenize();
+
+    std::unordered_map<SearchObject, double, SearchObjectHash, SearchObjectEqual> score;
+
+    for (const auto &token : tokens)
+    {
+        if (token.empty())
+            continue;
+
+        const auto matches = extendedSearch(token);
+
+        for (const auto &entry : matches)
+        {
+            score[entry.object] += entry.weight;
+        }
+    }
+
+    std::vector<QueryResult> results;
+    results.reserve(score.size());
+
+    for (const auto &[obj, s] : score)
+    {
+        results.push_back({obj, s});
+    }
+
+    std::sort(results.begin(), results.end(),
+              [](const QueryResult &a, const QueryResult &b)
+              {
+                  return a.score > b.score;
+              });
+
+    return results;
+}
+
+std::vector<QueryResult> Geocoder::searchNGram(
+    const std::string &input)
+{
+    std::vector<QueryResult> results;
+
+    auto hits = mNGramIndex->query(input, 20);
+
+    for (const auto &hit : hits)
+    {
+        results.push_back({&mBuildings[hit.id],
+                           hit.score});
+    }
+
+    return results;
+}
+
+std::vector<QueryResult> Geocoder::mergeResults(
+    const std::vector<QueryResult> &first,
+    const std::vector<QueryResult> &second)
+{
+    std::unordered_map<SearchObject,
+                       double,
+                       SearchObjectHash,
+                       SearchObjectEqual>
+        scores;
+
+    for (const auto &r : first)
+        scores[r.object] += r.score;
+
+    for (const auto &r : second)
+        scores[r.object] += r.score;
+
+    std::vector<QueryResult> result;
+
+    for (auto &[obj, score] : scores)
+    {
+        result.push_back({obj, score});
+    }
+
+    std::sort(result.begin(),
+              result.end(),
+              [](auto &a, auto &b)
+              {
+                  return a.score > b.score;
+              });
+
+    return result;
+}
+
 void Geocoder::index(Road &r)
 {
     addToken(r.name, &r);
@@ -346,4 +481,18 @@ void Geocoder::index(Road &r)
     addToken(
         geocoder::objects::toString(r.type),
         &r);
+}
+
+size_t Geocoder::memoryUsageReverseIndex() const
+{
+    size_t size = sizeof(*this);
+
+    for (const auto &[token, entries] : mIndex)
+    {
+        size += token.capacity();
+
+        size += entries.capacity() * sizeof(decltype(entries)::value_type);
+    }
+
+    return size;
 }

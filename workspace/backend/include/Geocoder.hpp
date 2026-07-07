@@ -1,6 +1,7 @@
 #include "GeocoderObjects/AdminArea.hpp"
 #include "GeocoderObjects/Building.hpp"
 #include "GeocoderObjects/Road.hpp"
+#include "Search/NGramIndex.hpp"
 
 #include <string>
 #include <vector>
@@ -17,6 +18,13 @@ struct QueryResult
     double score;
 };
 
+enum class SearchMode
+{
+    ReverseIndex,
+    NGram,
+    Combined
+};
+
 class Geocoder
 {
 public:
@@ -24,8 +32,12 @@ public:
              std::vector<Building> &buildings,
              std::vector<Road> &roads);
 
-    std::vector<QueryResult> findQuery(std::string &inputString);
+    std::vector<QueryResult> findQuery(
+        std::string inputString,
+        SearchMode mode = SearchMode::ReverseIndex);
+
     void createReverseIndex();
+    void createNGramIndex();
 
 private:
     /**
@@ -54,6 +66,16 @@ private:
      */
     std::vector<IndexEntry> extendedSearch(const std::string &token);
 
+    std::vector<QueryResult> searchReverseIndex(
+        const std::string &query);
+
+    std::vector<QueryResult> searchNGram(
+        const std::string &query);
+
+    std::vector<QueryResult> mergeResults(
+        const std::vector<QueryResult> &first,
+        const std::vector<QueryResult> &second);
+
     /**
      * add string text as key
      * and object object to the inverted index list
@@ -73,19 +95,23 @@ private:
     }
 
     /**
+     * Get the memoryUsage of mIndex
+     */
+    size_t memoryUsageReverseIndex() const;
+
+    /**
      * add all attributes to the inverted index list
      */
     void index(AdminArea &adminArea);
     void index(Building &building);
     void index(Road &road);
 
-    std::vector<AdminArea> mAdminAreas;
-    std::vector<Building> mBuildings;
-    std::vector<Road> mRoads;
+    std::vector<AdminArea> &mAdminAreas;
+    std::vector<Building> &mBuildings;
+    std::vector<Road> &mRoads;
 
     std::unordered_map<std::string, std::vector<IndexEntry>> mIndex;
-
-    // member reverse index
+    std::unique_ptr<geocoder::search::SearchIndex> mNGramIndex;
 
     std::string mQueryString;
 };

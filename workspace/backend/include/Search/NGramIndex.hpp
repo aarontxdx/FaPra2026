@@ -18,6 +18,11 @@ namespace geocoder
             void build(const std::vector<std::string> &items) override;
             std::vector<SearchHit> query(const std::string &q, int maxResults = 10) override;
 
+            /**
+             * @return approximate memory usage in bytes
+             */
+            size_t memoryUsage() const;
+
         private:
             size_t n_;
             std::vector<std::string> records_;

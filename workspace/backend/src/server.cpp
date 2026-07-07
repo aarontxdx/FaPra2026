@@ -4,8 +4,6 @@
 #include "PreProcessingUnit.hpp"
 #include "ReverseGeocoder.hpp"
 #include "Utils/UtilFunctions.hpp"
-#include "Search/NGramIndex.hpp"
-#include "Utils/FuzzyUtils.hpp"
 
 #include <json.hpp>
 #include <iostream>
@@ -115,26 +113,6 @@ namespace
         return {};
     }
 
-    std::vector<std::string> makeBuildingSearchRecords(const std::vector<Building> &items)
-    {
-        std::vector<std::string> records;
-        records.reserve(items.size());
-
-        for (const auto &building : items)
-        {
-            std::ostringstream ss;
-            if (!building.street.empty())
-                ss << building.street << ' ';
-            if (!building.housenumber.empty())
-                ss << building.housenumber << ' ';
-            if (!building.city.empty())
-                ss << building.city;
-            records.push_back(ss.str());
-        }
-
-        return records;
-    }
-
     json makeSearchResultJson(const SearchObject &obj, double score)
     {
         json item;
@@ -173,24 +151,6 @@ namespace
 
         return item;
     }
-
-    json makeBuildingResultJson(const Building &building, double score)
-    {
-        json item;
-        item["score"] = score;
-        item["name"] = building.name.empty() ? building.street : building.name;
-        item["type"] = "building";
-        item["lat"] = building.centroid.lat;
-        item["lon"] = building.centroid.lon;
-        item["street"] = building.street;
-        item["housenumber"] = building.housenumber;
-        item["city"] = building.city;
-        item["postcode"] = building.postcode;
-        item["county"] = building.county;
-        item["state"] = building.state;
-        item["country"] = building.country;
-        return item;
-    }
 }
 
 int main(int argc, char *argv[])
@@ -222,36 +182,30 @@ int main(int argc, char *argv[])
 
     loader.extractFile(buildings, adminAreas, roads, pbf_file);
 
-    std::cout << "\nFiles extracted...\n\n";
-
-    std::cout << "Preprocessing Elements..." << std::endl;
+    std::cout << "\nFiles extracted...\n\nPreprocessing Elements..." << std::endl;
 
     PreProcessingUnit preprocessing;
 
     preprocessing.preprocessAdminAreas(adminAreas, adminHierarchy);
-
     preprocessing.preprocessBuildings(buildings, adminHierarchy, grid);
-
     preprocessing.preprocessRoads(roads, adminHierarchy);
 
-    std::cout << "\nPreprocessing finished....\n"
-              << std::endl;
-
-    std::cout << "\nStarting Reverse Geocoder....\n"
+    std::cout << "\nPreprocessing finished...\n\nStarting Reverse Geocoder...\n"
               << std::endl;
 
     ReverseGeocoder reverseGeocoder{buildings, adminAreas, roads, grid};
 
-    std::cout << "\nReverse Geocoder is running....\n"
+    std::cout << "Starting Geocoder...\n"
               << std::endl;
 
     Geocoder geocoder{adminAreas, buildings, roads};
 
     geocoder.createReverseIndex();
+    geocoder.createNGramIndex();
 
-    const auto buildingRecords = makeBuildingSearchRecords(buildings);
-    std::unique_ptr<geocoder::search::SearchIndex> ngramIndex = std::make_unique<geocoder::search::NGramIndex>(3);
-    ngramIndex->build(buildingRecords);
+    std::cout << "Reverse Geocoder and Geocoder started...\n\n"
+              << "Server is running on http : // localhost:8080\n"
+              << std::endl;
 
     httplib::Server svr;
 
@@ -493,52 +447,6 @@ int main(int argc, char *argv[])
                 res.set_header("Access-Control-Allow-Origin", "*");
                 res.set_content(j.dump(), "application/json"); });
 
-    /**
-     * Reverse geocoding endpoint
-     *
-     * Finds the nearest Building to a given point
-     *
-     * @param lat
-     * @param lon
-     *
-     * @return JSON representation of nearest object
-     */
-    svr.Get("/geocode",
-            [&](const httplib::Request &req,
-                httplib::Response &res)
-            {
-                if (!req.has_param("query"))
-                {
-                    res.status = 400;
-                    res.set_content("Missing query parameter", "text/plain");
-                    return;
-                }
-
-                std::string query = req.get_param_value("query");
-                auto start = std::chrono::steady_clock::now();
-                auto results = geocoder.findQuery(query);
-                auto elapsedMs = std::chrono::duration<double, std::milli>(
-                                     std::chrono::steady_clock::now() - start)
-                                     .count();
-
-                json j;
-                j["query"] = query;
-                j["queryTimeMs"] = elapsedMs;
-                j["results"] = json::array();
-
-                size_t count = 0;
-                for (const auto &result : results)
-                {
-                    if (count++ >= 20)
-                        break;
-
-                    j["results"].push_back(makeSearchResultJson(result.object, result.score));
-                }
-
-                res.set_header("Access-Control-Allow-Origin", "*");
-                res.set_content(j.dump(), "application/json");
-            });
-
     svr.Get("/reverseGeocodeBuilding",
             [&](const httplib::Request &req,
                 httplib::Response &res)
@@ -701,47 +609,107 @@ int main(int argc, char *argv[])
                 res.set_content(json.str(), "application/json");
             });
 
-    // Simple search endpoint using either legacy brute-force or ngram index
-    svr.Get("/search", [&](const httplib::Request &req, httplib::Response &res)
+    /**
+     * Reverse geocoding endpoint
+     *
+     * Finds the nearest Building to a given point
+     *
+     * @param lat
+     * @param lon
+     *
+     * @return JSON representation of nearest object
+     */
+    svr.Get("/geocode",
+            [&](const httplib::Request &req,
+                httplib::Response &res)
             {
                 if (!req.has_param("query"))
                 {
                     res.status = 400;
-                    res.set_content("Missing query parameter", "text/plain");
+                    res.set_content(
+                        "Missing query parameter",
+                        "text/plain");
                     return;
                 }
 
-                std::string query = req.get_param_value("query");
-                std::string indexType = "legacy";
-                if (req.has_param("index"))
-                    indexType = req.get_param_value("index");
+                std::string query =
+                    req.get_param_value("query");
 
-                int maxResults = 20;
+                size_t maxResults = 20;
+
                 if (req.has_param("maxResults"))
-                    maxResults = std::stoi(req.get_param_value("maxResults"));
-
-                json out = json::array();
-
-                if (indexType == "ngram")
                 {
-                    const auto hits = ngramIndex->query(query, maxResults);
-                    for (const auto &hit : hits)
-                    {
-                        out.push_back(makeBuildingResultJson(buildings[hit.id], hit.score));
-                    }
-                }
-                else
-                {
-                    auto results = geocoder.findQuery(query);
-                    for (size_t i = 0; i < results.size() && i < static_cast<size_t>(maxResults); ++i)
-                    {
-                        const auto &result = results[i];
-                        out.push_back(makeSearchResultJson(result.object, result.score));
-                    }
+                    maxResults =
+                        std::stoi(
+                            req.get_param_value("maxResults"));
                 }
 
-                res.set_header("Access-Control-Allow-Origin", "*");
-                res.set_content(out.dump(), "application/json"); });
+                // Suchmodus vom Frontend übernehmen
+                SearchMode mode = SearchMode::Combined;
+
+                if (req.has_param("mode"))
+                {
+                    std::string modeParam =
+                        req.get_param_value("mode");
+
+                    if (modeParam == "reverse")
+                    {
+                        mode = SearchMode::ReverseIndex;
+                    }
+                    else if (modeParam == "ngram")
+                    {
+                        mode = SearchMode::NGram;
+                    }
+                    else if (modeParam == "combined")
+                    {
+                        mode = SearchMode::Combined;
+                    }
+                }
+
+                auto start =
+                    std::chrono::steady_clock::now();
+
+                auto results =
+                    geocoder.findQuery(
+                        query,
+                        mode);
+
+                auto elapsed =
+                    std::chrono::duration<double, std::milli>(
+                        std::chrono::steady_clock::now() - start)
+                        .count();
+
+                json out;
+
+                out["query"] = query;
+                out["queryTimeMs"] = elapsed;
+                out["mode"] =
+                    mode == SearchMode::ReverseIndex ? "reverse" : mode == SearchMode::NGram ? "ngram"
+                                                                                             : "combined";
+
+                out["results"] = json::array();
+
+                size_t count = 0;
+
+                for (const auto &result : results)
+                {
+                    if (count++ >= maxResults)
+                        break;
+
+                    out["results"].push_back(
+                        makeSearchResultJson(
+                            result.object,
+                            result.score));
+                }
+
+                res.set_header(
+                    "Access-Control-Allow-Origin",
+                    "*");
+
+                res.set_content(
+                    out.dump(),
+                    "application/json");
+            });
 
     svr.listen("0.0.0.0", 8080);
 }

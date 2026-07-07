@@ -169,9 +169,10 @@
         <h3>Forward Geocoder</h3>
         <input type="text" id="geocodeInput" placeholder="z. B. Hauptstrasse 10 Aalen" style="width:100%; box-sizing:border-box;">
         <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
-            <select id="indexSelect" style="flex:1;">
-                <option value="legacy">Legacy (current)</option>
-                <option value="ngram">NGram (fuzzy)</option>
+            <select id="searchModeSelect" style="flex:1;">
+                <option value="combined">Combined</option>
+                <option value="reverse">Reverse Index</option>
+                <option value="ngram">NGram</option>
             </select>
             <button onclick="runGeocodeQuery()" style="width:140px;">Suchen</button>
         </div>
@@ -313,7 +314,7 @@
             }
         });
 
-    function loadBuildings() {
+    async function loadBuildings() {
         buildingLayer.clearLayers();
 
         const bounds = map.getBounds();
@@ -351,7 +352,7 @@
             });
     }
 
-    function loadAdminAreas() {
+    async function loadAdminAreas() {
 
         // Layer leeren (wichtig: Klammern!)
         adminLayer.clearLayers();
@@ -379,7 +380,7 @@
         });
     }
 
-    function loadStreets() {
+    async function loadStreets() {
         streetLayer.clearLayers();
 
         const bounds = map.getBounds();
@@ -541,6 +542,130 @@
         }
     }
 
+    async function runGeocodeQuery() {
+        const query = document.getElementById('geocodeInput').value.trim();
+        const resultsBox = document.getElementById('geocodeResults');
+
+        if (!query) {
+            resultsBox.innerHTML = '<i>Bitte einen Suchbegriff eingeben.</i>';
+            return;
+        }
+
+        geocodeLayer.clearLayers();
+        resultsBox.innerHTML = '<i>Suche läuft…</i>';
+
+        try {
+
+            const mode =
+                document.getElementById('searchModeSelect').value;
+
+            const response = await fetch(
+                `http://localhost:8080/geocode?query=${encodeURIComponent(query)}&mode=${mode}`
+            );
+
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+
+            const data = await response.json();
+
+            const results = data.results || [];
+
+            if (results.length === 0) {
+                resultsBox.innerHTML = '<i>Keine Treffer gefunden.</i>';
+                return;
+            }
+
+
+            const items = results.map(result => {
+
+                const lat = result.lat;
+                const lon = result.lon;
+
+
+                const addressParts =
+                    [result.street, result.housenumber]
+                    .filter(Boolean)
+                    .join(' ');
+
+
+                const locationParts =
+                    [result.city, result.postcode]
+                    .filter(Boolean)
+                    .join(', ');
+
+
+                const popupContent = [
+                    `<strong>${result.name || "Unknown"}</strong>`,
+                    result.type || '',
+                    addressParts,
+                    locationParts,
+                    result.county,
+                    result.state,
+                    result.country
+                ]
+                .filter(Boolean)
+                .join('<br>');
+
+
+                const marker =
+                    L.marker([lat, lon])
+                    .bindPopup(popupContent);
+
+
+                geocodeLayer.addLayer(marker);
+
+
+                return `
+                <div style="margin-bottom:0.75rem;">
+                    <strong>${result.name || "Unknown"}</strong><br>
+                    ${result.type || ''}<br>
+
+                    ${addressParts ? addressParts + '<br>' : ''}
+                    ${locationParts ? locationParts + '<br>' : ''}
+
+                    ${result.county ? result.county + '<br>' : ''}
+                    ${result.state ? result.state + '<br>' : ''}
+                    ${result.country ? result.country + '<br>' : ''}
+
+                    <small>
+                        Score: ${Math.round((result.score || 0) * 100) / 100}
+                    </small>
+                </div>`;
+            });
+
+
+            resultsBox.innerHTML = items.join('');
+
+
+            if (geocodeLayer.getLayers().length > 0) {
+                map.fitBounds(
+                    geocodeLayer.getBounds()
+                );
+            }
+
+
+            console.log(
+                "Search mode:",
+                data.mode,
+                "Time:",
+                data.queryTimeMs,
+                "ms"
+            );
+
+
+        } catch(error) {
+
+            resultsBox.innerHTML =
+                '<i>Fehler bei der Suche.</i>';
+
+            console.error(
+                "Geocode failed:",
+                error
+            );
+        }
+    }
+
     function setThreshold(newThreshold) {
         if (!isNaN(newThreshold) && newThreshold.trim() !== "") {
             buildingThreshold = Number(newThreshold);
@@ -565,79 +690,6 @@
             console.log("Threshold:", roadThreshold);
         } else {
             console.log("Keine gültige Zahl!");
-        }
-    }
-
-    async function runGeocodeQuery() {
-        const query = document.getElementById('geocodeInput').value.trim();
-        const resultsBox = document.getElementById('geocodeResults');
-
-        if (!query) {
-            resultsBox.innerHTML = '<i>Bitte einen Suchbegriff eingeben.</i>';
-            return;
-        }
-
-        geocodeLayer.clearLayers();
-        resultsBox.innerHTML = '<i>Suche läuft…</i>';
-
-        try {
-            const index = document.getElementById('indexSelect').value || 'legacy';
-            const response = await fetch(`http://localhost:8080/search?query=${encodeURIComponent(query)}&index=${index}`);
-            const data = await response.json();
-
-            const results = (data.results && Array.isArray(data.results)) ? data.results : data;
-
-            if (!results || results.length === 0) {
-                resultsBox.innerHTML = '<i>Keine Treffer gefunden.</i>';
-                return;
-            }
-
-            const items = results.map(result => {
-                // support legacy geocode shape (lat/lon) and search shape (centroid [lon,lat])
-                let lat = result.lat, lon = result.lon;
-                if ((!lat && !lon) && result.centroid && Array.isArray(result.centroid)) {
-                    lon = result.centroid[0];
-                    lat = result.centroid[1];
-                }
-
-                const addressParts = [result.street, result.housenumber].filter(Boolean).join(' ');
-                const locationParts = [result.city, result.postcode].filter(Boolean).join(', ');
-                const details = [addressParts, locationParts, result.county, result.state, result.country]
-                    .filter(Boolean)
-                    .join('<br>');
-
-                const popupContent = [`<strong>${result.name}</strong>`,
-                    result.type || '',
-                    addressParts,
-                    locationParts,
-                    result.county,
-                    result.state,
-                    result.country]
-                    .filter(Boolean)
-                    .join('<br>');
-
-                const marker = L.marker([lat, lon]).bindPopup(popupContent);
-                geocodeLayer.addLayer(marker);
-
-                return `<div style="margin-bottom:0.75rem;">
-                    <strong>${result.name}</strong><br>
-                    ${result.type || ''}<br>
-                    ${addressParts ? addressParts + '<br>' : ''}
-                    ${locationParts ? locationParts + '<br>' : ''}
-                    ${result.county ? result.county + '<br>' : ''}
-                    ${result.state ? result.state + '<br>' : ''}
-                    ${result.country ? result.country + '<br>' : ''}
-                    <small>Score: ${Math.round((result.score||0)*100)/100}</small>
-                </div>`;
-            });
-
-            resultsBox.innerHTML = items.join('');
-            if (geocodeLayer.getLayers().length > 0) {
-                map.fitBounds(geocodeLayer.getBounds());
-            }
-        } catch (error) {
-            resultsBox.innerHTML = '<i>Fehler bei der Suche.</i>';
-            console.error(error);
         }
     }
 
