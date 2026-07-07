@@ -1,6 +1,7 @@
 #include "GeocoderObjects/AdminArea.hpp"
 #include "GeocoderObjects/Building.hpp"
 #include "GeocoderObjects/Road.hpp"
+#include "GeocoderObjects/SearchObject.hpp"
 #include "Search/NGramIndex.hpp"
 
 #include <string>
@@ -8,9 +9,8 @@
 #include <variant>
 #include <unordered_map>
 
-using SearchObject = std::variant<AdminArea *, Building *, Road *>;
-
 using Token = std::string;
+using namespace geocoder;
 
 struct QueryResult
 {

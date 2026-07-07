@@ -1,9 +1,10 @@
 #include "../include/Search/NGramIndex.hpp"
 #include "../include/Utils/FuzzyUtils.hpp"
 
-#include <sstream>
-#include <set>
 #include <algorithm>
+#include <set>
+#include <sstream>
+#include <stdexcept>
 #include <utility>
 
 using namespace geocoder::search;
@@ -11,25 +12,35 @@ using namespace geocoder::utils;
 
 NGramIndex::NGramIndex(size_t n) : n_(n) {}
 
-void NGramIndex::build(const std::vector<std::string> &items)
+void NGramIndex::build(
+    const std::vector<std::pair<std::string, SearchObject>> &items)
 {
     records_.clear();
     gram_counts_.clear();
     index_.clear();
+
     records_.reserve(items.size());
     gram_counts_.reserve(items.size());
 
     for (size_t id = 0; id < items.size(); ++id)
     {
-        const auto &combined = items[id];
-        std::string norm = normalize(combined);
-        records_.push_back(norm);
+        std::string norm = normalize(items[id].first);
+
+        records_.push_back({norm,
+                            items[id].second});
 
         auto grams = ngrams(norm, n_);
+
         gram_counts_.push_back(grams.size());
-        std::set<std::string> uniq(grams.begin(), grams.end());
+
+        std::set<std::string> uniq(
+            grams.begin(),
+            grams.end());
+
         for (const auto &g : uniq)
+        {
             index_[g].push_back(id);
+        }
     }
 }
 
@@ -59,7 +70,7 @@ std::vector<SearchHit> NGramIndex::query(const std::string &q, int maxResults)
     {
         size_t id = kv.first;
         size_t common = kv.second;
-        const auto &rec = records_[id];
+        const auto &rec = records_[id].text;
         size_t recGramCount = (id < gram_counts_.size()) ? gram_counts_[id] : ngrams(rec, n_).size();
         double overlap = static_cast<double>(common) / std::max<size_t>(1, std::max(qgrams.size(), recGramCount));
         candidates.emplace_back(id, overlap);
@@ -78,7 +89,7 @@ std::vector<SearchHit> NGramIndex::query(const std::string &q, int maxResults)
     for (size_t i = 0; i < candidateBudget; ++i)
     {
         size_t id = candidates[i].first;
-        const auto &rec = records_[id];
+        const auto &rec = records_[id].text;
         const auto overlap = candidates[i].second;
         int lev = levenshtein(qn, rec);
         size_t maxl = std::max(qn.size(), rec.size());
@@ -86,7 +97,9 @@ std::vector<SearchHit> NGramIndex::query(const std::string &q, int maxResults)
         if (editScore < 0.0)
             editScore = 0.0;
         double score = 0.6 * overlap + 0.4 * editScore;
-        results.push_back({id, score});
+        results.push_back(
+            {records_[id].object,
+             score});
     }
 
     std::sort(results.begin(), results.end(), [](const SearchHit &a, const SearchHit &b)
@@ -101,9 +114,12 @@ size_t geocoder::search::NGramIndex::memoryUsage() const
     size_t total = sizeof(NGramIndex);
 
     // records_
-    total += records_.capacity() * sizeof(std::string);
-    for (const auto &s : records_)
-        total += s.capacity();
+    total += records_.capacity() * sizeof(NGramRecord);
+
+    for (const auto &record : records_)
+    {
+        total += record.text.capacity();
+    }
 
     // gram_counts_
     total += gram_counts_.capacity() * sizeof(size_t);

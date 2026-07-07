@@ -135,19 +135,6 @@ namespace
             return '?'; // fallback
         }
     }
-
-    //*********************************************************/
-    //******************* Tokenization ************************/
-    //*********************************************************/
-
-    void joinToken(std::vector<Token> &tokenList)
-    {
-        // TODO: join Token which belong together
-    }
-
-    //*********************************************************/
-    //****************** Inverted Index ***********************/
-    //*********************************************************/
 }
 
 Geocoder::Geocoder(std::vector<AdminArea> &adminAreas,
@@ -262,25 +249,65 @@ void Geocoder::createNGramIndex()
 {
     auto start = std::chrono::steady_clock::now();
 
+    std::vector<std::pair<std::string, SearchObject>> records;
+
+    records.reserve(
+        mBuildings.size() +
+        mRoads.size() +
+        mAdminAreas.size());
+
     std::cout << "NGramIndex build for buildings..." << std::endl;
 
-    std::vector<std::string> records;
-    records.reserve(mBuildings.size());
-
-    for (const auto &building : mBuildings)
+    for (auto &building : mBuildings)
     {
         std::ostringstream ss;
 
         if (!building.street.empty())
-            ss << building.street << ' ';
+            ss << building.street << " ";
 
         if (!building.housenumber.empty())
-            ss << building.housenumber << ' ';
+            ss << building.housenumber << " ";
 
         if (!building.city.empty())
             ss << building.city;
 
-        records.push_back(ss.str());
+        records.push_back({ss.str(),
+                           &building});
+    }
+
+    std::cout << "NGramIndex build for roads..." << std::endl;
+
+    for (auto &road : mRoads)
+    {
+        std::ostringstream ss;
+
+        if (!road.name.empty())
+            ss << road.name << " ";
+
+        if (!road.city.empty())
+            ss << road.city;
+
+        records.push_back({ss.str(),
+                           &road});
+    }
+
+    std::cout << "NGramIndex build for areas..." << std::endl;
+
+    for (auto &area : mAdminAreas)
+    {
+        std::ostringstream ss;
+
+        if (!area.name.empty())
+            ss << area.name << " ";
+
+        if (!area.city.empty())
+            ss << area.city << " ";
+
+        if (!area.state.empty())
+            ss << area.state;
+
+        records.push_back({ss.str(),
+                           &area});
     }
 
     std::cout << "Creating NGram records: "
@@ -298,6 +325,11 @@ void Geocoder::createNGramIndex()
     std::cout << "createNGramIndex total duration: "
               << totalTime.count()
               << " ms\n"
+              << std::endl;
+
+    std::cout << "NGram memory usage: "
+              << mNGramIndex->memoryUsage() / 1024 / 1024
+              << " MB"
               << std::endl;
 }
 
@@ -427,15 +459,14 @@ std::vector<QueryResult> Geocoder::searchNGram(
     const std::string &input)
 {
     std::vector<QueryResult> results;
-
-    auto hits = mNGramIndex->query(input, 20);
-
+    auto hits =
+        mNGramIndex->query(input, 20);
     for (const auto &hit : hits)
     {
-        results.push_back({&mBuildings[hit.id],
-                           hit.score});
+        results.push_back(
+            {hit.object,
+             hit.score});
     }
-
     return results;
 }
 

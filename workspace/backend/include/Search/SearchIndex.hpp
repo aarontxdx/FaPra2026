@@ -3,27 +3,30 @@
 #include <string>
 #include <vector>
 #include <cstddef>
+#include <utility>
 
-#include "GeocoderObjects/Building.hpp"
+#include "GeocoderObjects/SearchObject.hpp"
 
-namespace geocoder
+namespace geocoder::search
 {
-    namespace search
+    struct SearchHit
     {
+        SearchObject object;
+        double score;
+    };
 
-        struct SearchHit
-        {
-            size_t id;
-            double score;
-        };
+    class SearchIndex
+    {
+    public:
+        virtual void build(
+            const std::vector<std::pair<std::string, SearchObject>> &items) = 0;
 
-        class SearchIndex
-        {
-        public:
-            virtual void build(const std::vector<std::string> &items) = 0;
-            virtual std::vector<SearchHit> query(const std::string &q, int maxResults = 10) = 0;
-            virtual ~SearchIndex() = default;
-        };
+        virtual std::vector<SearchHit> query(
+            const std::string &q,
+            int maxResults = 10) = 0;
 
-    }
-} // namespace geocoder::search
+        virtual size_t memoryUsage() const = 0;
+
+        virtual ~SearchIndex() = default;
+    };
+}
