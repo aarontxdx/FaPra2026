@@ -112,6 +112,45 @@ namespace
             return (*area)->name;
         return {};
     }
+
+    json makeSearchResultJson(const SearchObject &obj, double score)
+    {
+        json item;
+        item["score"] = score;
+        item["name"] = getObjectName(obj);
+        item["type"] = std::holds_alternative<Building *>(obj) ? "building"
+                       : std::holds_alternative<Road *>(obj)   ? "road"
+                                                               : "admin_area";
+        item["lat"] = getObjectLat(obj);
+        item["lon"] = getObjectLon(obj);
+
+        if (const auto *building = std::get_if<Building *>(&obj))
+        {
+            item["street"] = (*building)->street;
+            item["housenumber"] = (*building)->housenumber;
+            item["city"] = (*building)->city;
+            item["postcode"] = (*building)->postcode;
+            item["county"] = (*building)->county;
+            item["state"] = (*building)->state;
+            item["country"] = (*building)->country;
+        }
+        else if (const auto *road = std::get_if<Road *>(&obj))
+        {
+            item["city"] = (*road)->city;
+            item["postcode"] = (*road)->postcode;
+        }
+        else if (const auto *area = std::get_if<AdminArea *>(&obj))
+        {
+            item["adminLevel"] = (*area)->admin_level;
+            item["city"] = (*area)->city;
+            item["postcode"] = (*area)->postcode;
+            item["county"] = (*area)->county;
+            item["state"] = (*area)->state;
+            item["country"] = (*area)->country;
+        }
+
+        return item;
+    }
 }
 
 int main(int argc, char *argv[])
@@ -143,44 +182,30 @@ int main(int argc, char *argv[])
 
     loader.extractFile(buildings, adminAreas, roads, pbf_file);
 
-    std::cout << "\nFiles extracted...\n\n";
-
-    std::cout << "Preprocessing Elements..." << std::endl;
+    std::cout << "\nFiles extracted...\n\nPreprocessing Elements..." << std::endl;
 
     PreProcessingUnit preprocessing;
 
     preprocessing.preprocessAdminAreas(adminAreas, adminHierarchy);
-
     preprocessing.preprocessBuildings(buildings, adminHierarchy, grid);
-
     preprocessing.preprocessRoads(roads, adminHierarchy);
 
-    std::cout << "\nPreprocessing finished....\n"
-              << std::endl;
-
-    std::cout << "\nStarting Reverse Geocoder....\n"
+    std::cout << "\nPreprocessing finished...\n\nStarting Reverse Geocoder...\n"
               << std::endl;
 
     ReverseGeocoder reverseGeocoder{buildings, adminAreas, roads, grid};
 
-    std::cout << "\nReverse Geocoder is running....\n"
+    std::cout << "Starting Geocoder...\n"
               << std::endl;
 
     Geocoder geocoder{adminAreas, buildings, roads};
 
     geocoder.createReverseIndex();
+    geocoder.createNGramIndex();
 
-    std::string queryString1{"Tübinger Straße 38 Deckenpfronn"};
-    auto objectList1 = geocoder.findQuery(queryString1);
-    std::string queryString2{"Tübinger Straße 38 Deckenpfronn"};
-    auto objectList2 = geocoder.findQuery(queryString2);
-
-    if (auto *b = std::get_if<Building *>(&objectList1[0].object))
-    {
-        std::cout << (*b)->street << ", " << (*b)->housenumber << "\n";
-    }
-
-    std::cout << objectList2.size() << std::endl;
+    std::cout << "Reverse Geocoder and Geocoder started...\n\n"
+              << "Server is running on http : // localhost:8080\n"
+              << std::endl;
 
     httplib::Server svr;
 
@@ -422,78 +447,6 @@ int main(int argc, char *argv[])
                 res.set_header("Access-Control-Allow-Origin", "*");
                 res.set_content(j.dump(), "application/json"); });
 
-    /**
-     * Reverse geocoding endpoint
-     *
-     * Finds the nearest Building to a given point
-     *
-     * @param lat
-     * @param lon
-     *
-     * @return JSON representation of nearest object
-     */
-    svr.Get("/geocode",
-            [&](const httplib::Request &req,
-                httplib::Response &res)
-            {
-                if (!req.has_param("query"))
-                {
-                    res.status = 400;
-                    res.set_content("Missing query parameter", "text/plain");
-                    return;
-                }
-
-                std::string query = req.get_param_value("query");
-                auto start = std::chrono::steady_clock::now();
-                auto results = geocoder.findQuery(query);
-                auto elapsedMs = std::chrono::duration<double, std::milli>(
-                                     std::chrono::steady_clock::now() - start)
-                                     .count();
-
-                json j;
-                j["query"] = query;
-                j["queryTimeMs"] = elapsedMs;
-                j["results"] = json::array();
-
-                size_t count = 0;
-                for (const auto &result : results)
-                {
-                    if (count++ >= 20)
-                        break;
-
-                    json item;
-                    item["score"] = result.score;
-                    item["name"] = getObjectName(result.object);
-                    item["type"] = std::holds_alternative<Building *>(result.object) ? "building"
-                                   : std::holds_alternative<Road *>(result.object)   ? "road"
-                                                                                     : "admin_area";
-                    item["lat"] = getObjectLat(result.object);
-                    item["lon"] = getObjectLon(result.object);
-
-                    if (const auto *building = std::get_if<Building *>(&result.object))
-                    {
-                        item["street"] = (*building)->street;
-                        item["housenumber"] = (*building)->housenumber;
-                        item["city"] = (*building)->city;
-                        item["postcode"] = (*building)->postcode;
-                    }
-                    else if (const auto *road = std::get_if<Road *>(&result.object))
-                    {
-                        item["city"] = (*road)->city;
-                        item["postcode"] = (*road)->postcode;
-                    }
-                    else if (const auto *area = std::get_if<AdminArea *>(&result.object))
-                    {
-                        item["adminLevel"] = (*area)->admin_level;
-                    }
-
-                    j["results"].push_back(item);
-                }
-
-                res.set_header("Access-Control-Allow-Origin", "*");
-                res.set_content(j.dump(), "application/json");
-            });
-
     svr.Get("/reverseGeocodeBuilding",
             [&](const httplib::Request &req,
                 httplib::Response &res)
@@ -654,6 +607,108 @@ int main(int argc, char *argv[])
 
                 res.set_header("Access-Control-Allow-Origin", "*");
                 res.set_content(json.str(), "application/json");
+            });
+
+    /**
+     * Reverse geocoding endpoint
+     *
+     * Finds the nearest Building to a given point
+     *
+     * @param lat
+     * @param lon
+     *
+     * @return JSON representation of nearest object
+     */
+    svr.Get("/geocode",
+            [&](const httplib::Request &req,
+                httplib::Response &res)
+            {
+                if (!req.has_param("query"))
+                {
+                    res.status = 400;
+                    res.set_content(
+                        "Missing query parameter",
+                        "text/plain");
+                    return;
+                }
+
+                std::string query =
+                    req.get_param_value("query");
+
+                size_t maxResults = 20;
+
+                if (req.has_param("maxResults"))
+                {
+                    maxResults =
+                        std::stoi(
+                            req.get_param_value("maxResults"));
+                }
+
+                // Suchmodus vom Frontend übernehmen
+                SearchMode mode = SearchMode::Combined;
+
+                if (req.has_param("mode"))
+                {
+                    std::string modeParam =
+                        req.get_param_value("mode");
+
+                    if (modeParam == "reverse")
+                    {
+                        mode = SearchMode::ReverseIndex;
+                    }
+                    else if (modeParam == "ngram")
+                    {
+                        mode = SearchMode::NGram;
+                    }
+                    else if (modeParam == "combined")
+                    {
+                        mode = SearchMode::Combined;
+                    }
+                }
+
+                auto start =
+                    std::chrono::steady_clock::now();
+
+                auto results =
+                    geocoder.findQuery(
+                        query,
+                        mode);
+
+                auto elapsed =
+                    std::chrono::duration<double, std::milli>(
+                        std::chrono::steady_clock::now() - start)
+                        .count();
+
+                json out;
+
+                out["query"] = query;
+                out["queryTimeMs"] = elapsed;
+                out["mode"] =
+                    mode == SearchMode::ReverseIndex ? "reverse" : mode == SearchMode::NGram ? "ngram"
+                                                                                             : "combined";
+
+                out["results"] = json::array();
+
+                size_t count = 0;
+
+                for (const auto &result : results)
+                {
+                    if (count++ >= maxResults)
+                        break;
+
+                    out["results"].push_back(
+                        makeSearchResultJson(
+                            result.object,
+                            result.score));
+                }
+
+                res.set_header(
+                    "Access-Control-Allow-Origin",
+                    "*");
+
+                res.set_content(
+                    out.dump(),
+                    "application/json");
             });
 
     svr.listen("0.0.0.0", 8080);
