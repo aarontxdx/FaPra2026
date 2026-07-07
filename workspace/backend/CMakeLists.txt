@@ -19,6 +19,7 @@ endif()
 
 target_include_directories(backend PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/FileSystem
     ${CMAKE_SOURCE_DIR}/deps/libosmium/include
     ${CMAKE_SOURCE_DIR}/deps/protozero/include
     ${CMAKE_SOURCE_DIR}/deps/httplib

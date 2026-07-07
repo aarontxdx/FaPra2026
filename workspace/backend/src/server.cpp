@@ -1,3 +1,4 @@
+#include "BinaryStorage.hpp"
 #include "DataStructures/Grid.hpp"
 #include "Geocoder.hpp"
 #include "PBFLoader.hpp"
@@ -5,6 +6,7 @@
 #include "ReverseGeocoder.hpp"
 #include "Utils/UtilFunctions.hpp"
 
+#include <filesystem>
 #include <json.hpp>
 #include <iostream>
 #include <chrono>
@@ -13,6 +15,8 @@
 
 using json = nlohmann::json;
 using namespace geocoder::objects;
+
+namespace fs = std::filesystem;
 
 namespace
 {
@@ -155,43 +159,167 @@ namespace
 
 int main(int argc, char *argv[])
 {
-    std::string pbf_file;
+    std::string inputFile;
+    std::string binaryOutput = "data/geocoder.bin";
 
-    const std::string DATA_REG_STUTTGART = "data/stuttgart-regbez-260409.osm.pbf";
-    const std::string DATA_BW = "data/baden-wuerttemberg-260416.osm.pbf";
+    const std::string DATA_BW =
+        "data/baden-wuerttemberg-260416.osm.pbf";
 
     if (argc > 1)
     {
-        pbf_file = argv[1];
+        inputFile = argv[1];
     }
     else
     {
-        pbf_file = DATA_BW;
-    };
+        inputFile = DATA_BW;
+    }
+
+    if (fs::path(inputFile).extension() == ".pbf" && argc > 2)
+    {
+        binaryOutput = argv[2];
+    }
 
     std::cout << "Starting server..." << std::endl;
-    std::cout << "Extracting File..." << std::endl;
 
     PBFLoader loader;
 
     std::vector<Building> buildings;
     std::vector<AdminArea> adminAreas;
     std::vector<Road> roads;
+
     AdminHierarchy adminHierarchy;
     Grid grid{};
 
-    loader.extractFile(buildings, adminAreas, roads, pbf_file);
+    if (fs::path(inputFile).extension() == ".pbf")
+    {
+        std::cout << "Loading PBF file: "
+                  << inputFile
+                  << std::endl;
 
-    std::cout << "\nFiles extracted...\n\nPreprocessing Elements..." << std::endl;
+        loader.extractFile(
+            buildings,
+            adminAreas,
+            roads,
+            inputFile);
 
-    PreProcessingUnit preprocessing;
+        std::cout
+            << "\nFiles extracted..."
+            << "\n\nPreprocessing Elements..."
+            << std::endl;
 
-    preprocessing.preprocessAdminAreas(adminAreas, adminHierarchy);
-    preprocessing.preprocessBuildings(buildings, adminHierarchy, grid);
-    preprocessing.preprocessRoads(roads, adminHierarchy);
+        PreProcessingUnit preprocessing;
 
-    std::cout << "\nPreprocessing finished...\n\nStarting Reverse Geocoder...\n"
-              << std::endl;
+        preprocessing.preprocessAdminAreas(
+            adminAreas,
+            adminHierarchy);
+
+        preprocessing.preprocessBuildings(
+            buildings,
+            adminHierarchy,
+            grid);
+
+        preprocessing.preprocessRoads(
+            roads,
+            adminHierarchy);
+
+        std::cout
+            << "\nPreprocessing finished..."
+            << std::endl;
+
+        std::cout
+            << "Saving binary file: "
+            << binaryOutput
+            << std::endl;
+
+        if (!BinaryStorage::saveBinary(
+                binaryOutput,
+                buildings,
+                adminAreas,
+                roads))
+        {
+            std::cerr
+                << "Saving binary failed!"
+                << std::endl;
+            return 1;
+        }
+
+        std::cout
+            << "Binary saved successfully"
+            << std::endl;
+    }
+    else if (fs::path(inputFile).extension() == ".bin")
+    {
+        std::cout
+            << "Loading binary file: "
+            << inputFile
+            << std::endl;
+
+        if (!BinaryStorage::loadBinary(
+                inputFile,
+                buildings,
+                adminAreas,
+                roads))
+        {
+            std::cerr
+                << "Failed loading binary file!"
+                << std::endl;
+
+            return 1;
+        }
+
+        std::cout
+            << "Binary loaded successfully"
+            << std::endl;
+
+        std::cout
+            << "Building Grid..."
+            << std::endl;
+
+        std::tuple<Point, Point> boundingBox(
+            Point{
+                std::numeric_limits<double>::infinity(),
+                std::numeric_limits<double>::infinity()},
+            Point{
+                -std::numeric_limits<double>::infinity(),
+                -std::numeric_limits<double>::infinity()});
+
+        for (auto &building : buildings)
+        {
+            helper::updateObjectBoundingBox(
+                building.centroid,
+                boundingBox);
+        }
+
+        grid = Grid(
+            std::get<0>(boundingBox).lat,
+            std::get<0>(boundingBox).lon,
+            std::get<1>(boundingBox).lat,
+            std::get<1>(boundingBox).lon,
+            0.1);
+
+        for (auto &building : buildings)
+        {
+            grid.insert(&building);
+        }
+
+        std::cout
+            << "Building AdminHierarchy..."
+            << std::endl;
+
+        PreProcessingUnit preprocessing;
+
+        preprocessing.preprocessAdminAreas(
+            adminAreas,
+            adminHierarchy);
+    }
+    else
+    {
+        std::cerr
+            << "Unknown file type. Use .pbf or .bin"
+            << std::endl;
+
+        return 1;
+    }
 
     ReverseGeocoder reverseGeocoder{buildings, adminAreas, roads, grid};
 

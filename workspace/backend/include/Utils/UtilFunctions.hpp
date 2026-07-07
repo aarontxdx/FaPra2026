@@ -25,4 +25,9 @@ namespace helper
     std::vector<const AdminArea *> pointInPolygon(
         const Point &point,
         const std::vector<AdminArea *> &areas);
+
+    /**
+     * This function updates the boundingbox for a given Point
+     */
+    void updateObjectBoundingBox(Point &centroid, std::tuple<Point, Point> &GeocoderObjectBB);
 }

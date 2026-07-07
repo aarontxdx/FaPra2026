@@ -163,20 +163,6 @@ namespace
     }
 
     /**
-     * This function updates the boundingbox for a given Point
-     */
-    void updateObjectBoundingBox(Point &centroid, std::tuple<Point, Point> &GeocoderObjectBB)
-    {
-        Point &minPoint = std::get<0>(GeocoderObjectBB);
-        Point &maxPoint = std::get<1>(GeocoderObjectBB);
-
-        minPoint.lat = std::min(minPoint.lat, centroid.lat);
-        minPoint.lon = std::min(minPoint.lon, centroid.lon);
-        maxPoint.lat = std::max(maxPoint.lat, centroid.lat);
-        maxPoint.lon = std::max(maxPoint.lon, centroid.lon);
-    }
-
-    /**
      * insert Buildings into grid
      */
     void buildGrid(Grid &grid, std::vector<Building> &buildings)
@@ -528,7 +514,7 @@ void PreProcessingUnit::preprocessBuildings(
     for (auto &building : buildings)
     {
         building.centroid = representativePoint(building.polygon);
-        updateObjectBoundingBox(building.centroid, GeocoderObjectBB);
+        helper::updateObjectBoundingBox(building.centroid, GeocoderObjectBB);
 
         building.polygon.clear();
         building.polygon.shrink_to_fit();

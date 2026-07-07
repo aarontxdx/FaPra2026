@@ -131,4 +131,15 @@ namespace helper
 
         return result;
     }
+
+    void updateObjectBoundingBox(Point &centroid, std::tuple<Point, Point> &GeocoderObjectBB)
+    {
+        Point &minPoint = std::get<0>(GeocoderObjectBB);
+        Point &maxPoint = std::get<1>(GeocoderObjectBB);
+
+        minPoint.lat = std::min(minPoint.lat, centroid.lat);
+        minPoint.lon = std::min(minPoint.lon, centroid.lon);
+        maxPoint.lat = std::max(maxPoint.lat, centroid.lat);
+        maxPoint.lon = std::max(maxPoint.lon, centroid.lon);
+    }
 }
