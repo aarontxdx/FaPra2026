@@ -3,6 +3,7 @@
 #include "GeocoderObjects/Road.hpp"
 #include "GeocoderObjects/SearchObject.hpp"
 #include "Search/NGramIndex.hpp"
+#include "Search/Ranking.hpp"
 
 #include <string>
 #include <vector>
@@ -64,13 +65,22 @@ private:
     /**
      * connect token which belong together
      */
-    std::vector<IndexEntry> extendedSearch(const std::string &token);
+    std::vector<geocoder::search::MatchFeatures>
+    extendedSearch(const std::string &token);
 
     std::vector<QueryResult> searchReverseIndex(
         const std::string &query);
 
     std::vector<QueryResult> searchNGram(
         const std::string &query);
+
+    size_t countMatchingTokens(
+        const SearchObject &object,
+        const std::vector<std::string> &tokens);
+
+    void fillAttributeMatches(
+        geocoder::search::MatchFeatures &feature,
+        const std::vector<std::string> &tokens);
 
     std::vector<QueryResult> mergeResults(
         const std::vector<QueryResult> &first,

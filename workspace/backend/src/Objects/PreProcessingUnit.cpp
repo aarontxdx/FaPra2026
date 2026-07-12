@@ -9,82 +9,236 @@
 
 namespace
 {
-    /**
-     * This function does a PIP test for a specific building
-     * and preprocesses the labels of the given building
-     */
+    std::vector<const AdminArea *> findContainingAreas(
+        AdminArea *child,
+        const std::vector<AdminArea *> &candidates)
+    {
+        Point center =
+            {
+                (std::get<0>(child->bb).lat +
+                 std::get<1>(child->bb).lat) /
+                    2.0,
+
+                (std::get<0>(child->bb).lon +
+                 std::get<1>(child->bb).lon) /
+                    2.0};
+
+        return helper::pointInPolygon(
+            center,
+            candidates);
+    }
+
+    std::vector<AdminArea *> getAreasByLevel(
+        int level,
+        AdminHierarchy &hierarchy)
+    {
+        if (level == -1)
+        {
+            return hierarchy.postalCodes;
+        }
+
+        return hierarchy.adminAreaByLevel[level];
+    }
+
+    void buildParentAreas(
+        std::vector<AdminArea> &adminAreas,
+        AdminHierarchy &hierarchy)
+    {
+        const std::vector<int> levels =
+            {
+                -1,
+                8,
+                6,
+                4,
+                2};
+
+        for (auto &area : adminAreas)
+        {
+            std::vector<AdminArea *> candidates;
+
+            for (int level : levels)
+            {
+                // nicht gegen sich selbst testen
+                if (level == area.admin_level)
+                    continue;
+
+                auto areas =
+                    getAreasByLevel(
+                        level,
+                        hierarchy);
+
+                candidates.insert(
+                    candidates.end(),
+                    areas.begin(),
+                    areas.end());
+            }
+
+            auto parents =
+                findContainingAreas(
+                    &area,
+                    candidates);
+
+            for (auto *parent : parents)
+            {
+                int level = parent->admin_level;
+
+                if (level < 0 || level >= static_cast<int>(area.parentAreas.size()))
+                    continue;
+
+                if (level <= area.admin_level)
+                {
+                    area.parentAreas[level] = parent;
+                }
+            }
+        }
+    }
+
     void buildingInPolygonTest(
         Building &building,
         const AdminHierarchy &hierarchy)
     {
-        // postalcode
-        auto postalCodes = helper::pointInPolygon(
-            building.centroid,
-            hierarchy.postalCodes);
+        AdminArea *baseArea = nullptr;
 
-        for (const auto *area : postalCodes)
+        /*
+         * 1. Postalcode Area bestimmen
+         */
+        if (!building.postcode.empty())
         {
-            if (building.postcode.empty())
-                building.postcode = area->postal_code;
+            for (auto *postal : hierarchy.postalCodes)
+            {
+                if (postal->postal_code == building.postcode)
+                {
+                    baseArea = postal;
+                    break;
+                }
+            }
         }
 
-        // country (level 2)
+        /*
+         * 2. Falls kein Postalcode bekannt:
+         *    einmal PIP auf Postalcode Areas
+         */
+        if (!baseArea)
+        {
+            auto postalAreas =
+                helper::pointInPolygon(
+                    building.centroid,
+                    hierarchy.postalCodes);
+
+            if (!postalAreas.empty())
+            {
+                baseArea =
+                    const_cast<AdminArea *>(postalAreas.front());
+
+                building.postcode =
+                    baseArea->postal_code;
+            }
+        }
+
+        /*
+         * 3. Parent Areas übernehmen
+         */
+        if (baseArea)
+        {
+            static constexpr std::array<int, 5> levels =
+                {
+                    2,
+                    4,
+                    6,
+                    8,
+                    9};
+
+            for (int level : levels)
+            {
+                const AdminArea *parent =
+                    baseArea->parentAreas[level];
+
+                if (!parent)
+                    continue;
+
+                switch (level)
+                {
+                case 2:
+                    building.country =
+                        parent->name;
+                    break;
+
+                case 4:
+                    building.state =
+                        parent->name;
+                    break;
+
+                case 6:
+                    building.county =
+                        parent->name;
+                    break;
+
+                case 8:
+                case 9:
+                    if (building.city.empty())
+                        building.city =
+                            parent->name;
+                    break;
+                }
+            }
+        }
+
+        /*
+         * 4. Fallback:
+         *    Nur fehlende Ebenen per PIP testen
+         */
+        auto findLevel =
+            [&](int level)
+        {
+            auto result =
+                helper::pointInPolygon(
+                    building.centroid,
+                    hierarchy.adminAreaByLevel[level]);
+
+            if (!result.empty())
+                return result.front();
+
+            return static_cast<const AdminArea *>(nullptr);
+        };
+
         if (building.country.empty())
         {
-            auto countries = helper::pointInPolygon(
-                building.centroid,
-                hierarchy.adminAreaByLevel[2]);
+            auto area = findLevel(2);
 
-            for (auto *area : countries)
-            {
+            if (area)
                 building.country = area->name;
-            }
         }
 
-        // state (level 4)
-        auto states = helper::pointInPolygon(
-            building.centroid,
-            hierarchy.adminAreaByLevel[4]);
-
-        for (auto *area : states)
+        if (building.state.empty())
         {
-            building.state = area->name;
+            auto area = findLevel(4);
+
+            if (area)
+                building.state = area->name;
         }
 
-        // county (level 6)
-        auto counties = helper::pointInPolygon(
-            building.centroid,
-            hierarchy.adminAreaByLevel[6]);
-
-        for (auto *area : counties)
+        if (building.county.empty())
         {
-            building.county = area->name;
-        }
+            auto area = findLevel(6);
 
-        // city (level 8)
-        if (building.city.empty())
-        {
-            auto cities = helper::pointInPolygon(
-                building.centroid,
-                hierarchy.adminAreaByLevel[8]);
-
-            for (auto *area : cities)
-            {
-                building.city = area->name;
-            }
+            if (area)
+                building.county = area->name;
         }
 
         if (building.city.empty())
         {
-            // district (level 9)
-            auto districts = helper::pointInPolygon(
-                building.centroid,
-                hierarchy.adminAreaByLevel[9]);
+            auto area = findLevel(8);
 
-            for (auto *area : districts)
-            {
+            if (area)
                 building.city = area->name;
-            }
+        }
+
+        if (building.city.empty())
+        {
+            auto area = findLevel(9);
+
+            if (area)
+                building.city = area->name;
         }
     }
 
@@ -494,6 +648,10 @@ void PreProcessingUnit::preprocessAdminAreas(
             adminHierarchy.adminAreaByLevel[level].push_back(&area);
         }
     }
+
+    buildParentAreas(
+        adminAreas,
+        adminHierarchy);
 }
 
 void PreProcessingUnit::preprocessBuildings(

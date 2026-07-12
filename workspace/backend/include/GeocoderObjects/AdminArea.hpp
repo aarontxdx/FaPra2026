@@ -3,6 +3,7 @@
 #include "Point.hpp"
 #include "GeocoderObject.hpp"
 
+#include <array>
 #include <vector>
 #include <memory>
 #include <tuple>
@@ -17,5 +18,12 @@ struct AdminArea : GeocoderObject
 
     std::tuple<Point, Point> bb;
 
+    std::array<const AdminArea *, 11> parentAreas{};
+
     int64_t id;
+
+    AdminArea()
+    {
+        parentAreas.fill(nullptr);
+    }
 };

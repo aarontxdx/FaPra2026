@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Ranking.hpp"
 #include "SearchIndex.hpp"
 
 #include <string>
@@ -17,7 +18,10 @@ namespace geocoder
             explicit NGramIndex(size_t n = 3);
             void build(
                 const std::vector<std::pair<std::string, SearchObject>> &items) override;
-            std::vector<SearchHit> query(const std::string &q, int maxResults = 10) override;
+
+            std::vector<MatchFeatures> query(
+                const std::string &q,
+                int maxResults = 10);
 
             /**
              * @return approximate memory usage in bytes

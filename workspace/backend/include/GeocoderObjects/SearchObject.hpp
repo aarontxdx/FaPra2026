@@ -3,6 +3,7 @@
 #include "Building.hpp"
 #include "Road.hpp"
 #include "AdminArea.hpp"
+#include "ObjectType.hpp"
 
 #include <variant>
 

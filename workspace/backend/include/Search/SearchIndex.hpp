@@ -21,7 +21,7 @@ namespace geocoder::search
         virtual void build(
             const std::vector<std::pair<std::string, SearchObject>> &items) = 0;
 
-        virtual std::vector<SearchHit> query(
+        virtual std::vector<MatchFeatures> query(
             const std::string &q,
             int maxResults = 10) = 0;
 
