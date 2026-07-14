@@ -6,6 +6,7 @@
 #include "ObjectType.hpp"
 
 #include <variant>
+#include <unordered_map>
 
 namespace geocoder
 {
@@ -13,4 +14,17 @@ namespace geocoder
         AdminArea *,
         Building *,
         Road *>;
+
+    struct IndexEntry
+    {
+        SearchObject object;
+        int weight;
+    };
+
+    struct NGramRecord
+    {
+        std::string token;
+    };
+
+    using ReverseIndex = std::unordered_map<std::string, std::vector<IndexEntry>>;
 }

@@ -41,14 +41,6 @@ public:
     void createNGramIndex();
 
 private:
-    struct IndexEntry
-    {
-        SearchObject object;
-        int weight;
-    };
-
-    using ReverseIndex = std::unordered_map<std::string, std::vector<IndexEntry>>;
-
     /**
      * normalization of a given string
      *
@@ -75,10 +67,6 @@ private:
 
     std::vector<QueryResult> searchNGram(
         const std::string &query);
-
-    size_t countMatchingTokens(
-        const SearchObject &object,
-        const std::vector<std::string> &tokens);
 
     void fillAttributeMatches(
         geocoder::search::MatchFeatures &feature,
@@ -130,8 +118,8 @@ private:
     std::vector<Building> &mBuildings;
     std::vector<Road> &mRoads;
 
-    std::unordered_map<std::string, std::vector<IndexEntry>> mIndex;
-    std::unique_ptr<geocoder::search::SearchIndex> mNGramIndex;
+    ReverseIndex mIndex;
+    std::unique_ptr<geocoder::search::NGramIndex> mNGramIndex;
 
     std::string mQueryString;
 };

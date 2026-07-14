@@ -16,8 +16,9 @@ namespace geocoder
         {
         public:
             explicit NGramIndex(size_t n = 3);
+
             void build(
-                const std::vector<std::pair<std::string, SearchObject>> &items) override;
+                const ReverseIndex &reverseIndex);
 
             std::vector<MatchFeatures> query(
                 const std::string &q,
@@ -29,11 +30,7 @@ namespace geocoder
             size_t memoryUsage() const;
 
         private:
-            struct NGramRecord
-            {
-                std::string text;
-                SearchObject object;
-            };
+            const ReverseIndex *reverseIndex_ = nullptr;
 
             size_t n_;
             std::vector<NGramRecord> records_;

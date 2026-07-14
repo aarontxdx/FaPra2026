@@ -373,72 +373,9 @@ void Geocoder::createNGramIndex()
 {
     auto start = std::chrono::steady_clock::now();
 
-    std::vector<std::pair<std::string, SearchObject>> records;
+    std::cout << "Creating NGramIndex..." << std::endl;
 
-    records.reserve(
-        mBuildings.size() +
-        mRoads.size() +
-        mAdminAreas.size());
-
-    std::cout << "NGramIndex build for buildings..." << std::endl;
-
-    for (auto &building : mBuildings)
-    {
-        std::ostringstream ss;
-
-        if (!building.street.empty())
-            ss << building.street << " ";
-
-        if (!building.housenumber.empty())
-            ss << building.housenumber << " ";
-
-        if (!building.city.empty())
-            ss << building.city;
-
-        records.push_back({ss.str(),
-                           &building});
-    }
-
-    std::cout << "NGramIndex build for roads..." << std::endl;
-
-    for (auto &road : mRoads)
-    {
-        std::ostringstream ss;
-
-        if (!road.name.empty())
-            ss << road.name << " ";
-
-        if (!road.city.empty())
-            ss << road.city;
-
-        records.push_back({ss.str(),
-                           &road});
-    }
-
-    std::cout << "NGramIndex build for areas..." << std::endl;
-
-    for (auto &area : mAdminAreas)
-    {
-        std::ostringstream ss;
-
-        if (!area.name.empty())
-            ss << area.name << " ";
-
-        if (!area.city.empty())
-            ss << area.city << " ";
-
-        if (!area.state.empty())
-            ss << area.state;
-
-        records.push_back({ss.str(),
-                           &area});
-    }
-
-    std::cout << "Creating NGram records: "
-              << records.size()
-              << std::endl;
-
-    mNGramIndex->build(records);
+    mNGramIndex->build(mIndex);
 
     auto end = std::chrono::steady_clock::now();
 
@@ -446,15 +383,14 @@ void Geocoder::createNGramIndex()
         std::chrono::duration_cast<std::chrono::milliseconds>(
             end - start);
 
-    std::cout << "createNGramIndex total duration: "
-              << totalTime.count()
-              << " ms\n"
-              << std::endl;
-
-    std::cout << "NGram memory usage: "
-              << mNGramIndex->memoryUsage() / 1024 / 1024
-              << " MB"
-              << std::endl;
+    std::cout
+        << "createNGramIndex total duration: "
+        << totalTime.count()
+        << " ms\n"
+        << "NGram memory usage: "
+        << mNGramIndex->memoryUsage() / 1024 / 1024
+        << " MB\n"
+        << std::endl;
 }
 
 std::vector<Token> Geocoder::tokenize()
@@ -624,7 +560,15 @@ std::vector<QueryResult> Geocoder::searchReverseIndex(
 std::vector<QueryResult> Geocoder::searchNGram(
     const std::string &input)
 {
+    std::unordered_map<
+        SearchObject,
+        MatchFeatures,
+        SearchObjectHash,
+        SearchObjectEqual>
+        matches;
+
     mQueryString = input;
+
     std::vector<QueryResult> results;
 
     Ranking ranking;
@@ -636,16 +580,44 @@ std::vector<QueryResult> Geocoder::searchNGram(
 
     for (auto &feature : features)
     {
-        feature.queryTokenCount = tokens.size();
+        auto it = matches.find(feature.object);
+
+        if (it == matches.end())
+        {
+            matches.emplace(
+                feature.object,
+                feature);
+        }
+        else
+        {
+            auto &existing = it->second;
+
+            // mehrere Token-Treffer zusammenführen
+            existing.matchedTokens.insert(
+                feature.matchedTokens.begin(),
+                feature.matchedTokens.end());
+
+            // bester NGram Score zählt
+            existing.ngramScore =
+                std::max(
+                    existing.ngramScore,
+                    feature.ngramScore);
+
+            // bester Edit Score zählt
+            existing.editScore =
+                std::max(
+                    existing.editScore,
+                    feature.editScore);
+        }
+    }
+
+    for (auto &[object, feature] : matches)
+    {
+        feature.queryTokenCount =
+            tokens.size();
 
         feature.matchedQueryTokens =
-            countMatchingTokens(
-                feature.object,
-                tokens);
-
-        fillAttributeMatches(
-            feature,
-            tokens);
+            feature.matchedTokens.size();
 
         double score =
             ranking.finalScore(feature);
@@ -656,94 +628,30 @@ std::vector<QueryResult> Geocoder::searchNGram(
                     feature.matchedQueryTokens,
                     feature.queryTokenCount)) /
             static_cast<double>(
-                std::max<std::size_t>(
+                std::max<size_t>(
                     1,
                     feature.queryTokenCount));
 
         score *= (0.8 + 0.2 * coverage);
 
         results.push_back(
-            {feature.object,
+            {object,
              score});
     }
 
-    std::sort(results.begin(),
-              results.end(),
-              [](const QueryResult &a,
-                 const QueryResult &b)
-              {
-                  return a.score > b.score;
-              });
+    std::sort(
+        results.begin(),
+        results.end(),
+        [](const QueryResult &a,
+           const QueryResult &b)
+        {
+            return a.score > b.score;
+        });
 
     return results;
 }
 
-size_t Geocoder::countMatchingTokens(
-    const SearchObject &object,
-    const std::vector<std::string> &tokens)
-{
-    std::vector<std::string> attributes;
-
-    std::visit(
-        [&](auto *obj)
-        {
-            using T = std::decay_t<decltype(*obj)>;
-
-            attributes.push_back(obj->name);
-            attributes.push_back(obj->country);
-            attributes.push_back(obj->state);
-            attributes.push_back(obj->county);
-            attributes.push_back(obj->city);
-            attributes.push_back(obj->postcode);
-
-            if constexpr (std::is_same_v<T, AdminArea>)
-            {
-                attributes.push_back(obj->postal_code);
-            }
-            else if constexpr (std::is_same_v<T, Road>)
-            {
-            }
-            else if constexpr (std::is_same_v<T, Building>)
-            {
-                attributes.push_back(obj->street);
-                attributes.push_back(obj->housenumber);
-
-                for (const auto *area : obj->adminAreas)
-                {
-                    if (area)
-                    {
-                        attributes.push_back(area->name);
-                        attributes.push_back(area->postcode);
-                    }
-                }
-            }
-        },
-        object);
-
-    size_t matched = 0;
-
-    for (auto token : tokens)
-    {
-        normalize(token);
-
-        for (auto attribute : attributes)
-        {
-            normalize(attribute);
-
-            if (attribute.empty())
-                continue;
-
-            if (attribute.find(token) != std::string::npos)
-            {
-                matched++;
-                break;
-            }
-        }
-    }
-
-    return matched;
-}
-
+// TODO: Prüfe Hausnummern als ReverseIndex
 void Geocoder::fillAttributeMatches(
     MatchFeatures &feature,
     const std::vector<std::string> &tokens)
@@ -761,10 +669,8 @@ void Geocoder::fillAttributeMatches(
                 std::string housenumber = obj->housenumber;
                 normalize(housenumber);
 
-                for (auto token : tokens)
+                for (const auto &token : tokens)
                 {
-                    normalize(token);
-
                     if (!street.empty() &&
                         street.find(token) != std::string::npos)
                     {

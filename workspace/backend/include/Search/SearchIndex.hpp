@@ -19,7 +19,7 @@ namespace geocoder::search
     {
     public:
         virtual void build(
-            const std::vector<std::pair<std::string, SearchObject>> &items) = 0;
+            const ReverseIndex &reverseIndex) = 0;
 
         virtual std::vector<MatchFeatures> query(
             const std::string &q,
