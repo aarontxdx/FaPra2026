@@ -251,68 +251,125 @@ namespace
         Road &road,
         const AdminHierarchy &hierarchy)
     {
-        // postalcode
-        auto postalCodes = helper::pointInPolygon(
-            road.nodes[0],
-            hierarchy.postalCodes);
+        AdminArea *baseArea = nullptr;
 
-        for (const auto *area : postalCodes)
+        /*
+         * 1. Postalcodes
+         */
+        if (!road.postcode.empty())
         {
-            if (road.postcode.empty())
-                road.postcode = area->postal_code;
-        }
-
-        // country (level 2)
-        auto countries = helper::pointInPolygon(
-            road.nodes[0],
-            hierarchy.adminAreaByLevel[2]);
-
-        for (const auto *area : countries)
-        {
-            road.country = area->name;
-        }
-
-        // state (level 4)
-        auto states = helper::pointInPolygon(
-            road.nodes[0],
-            hierarchy.adminAreaByLevel[4]);
-
-        for (const auto *area : states)
-        {
-            road.state = area->name;
-        }
-
-        // county (level 6)
-        auto counties = helper::pointInPolygon(
-            road.nodes[0],
-            hierarchy.adminAreaByLevel[6]);
-
-        for (const auto *area : counties)
-        {
-            road.county = area->name;
-        }
-
-        // city (level 8)
-        auto cities = helper::pointInPolygon(
-            road.nodes[0],
-            hierarchy.adminAreaByLevel[8]);
-
-        for (const auto *area : cities)
-        {
-            road.city = area->name;
-        }
-
-        // district (level 9)
-        auto districts = helper::pointInPolygon(
-            road.nodes[0],
-            hierarchy.adminAreaByLevel[9]);
-
-        for (const auto *area : districts)
-        {
-            if (road.city.empty())
+            for (auto *postal : hierarchy.postalCodes)
             {
-                road.city = area->name;
+                if (postal->postal_code == road.postcode)
+                {
+                    baseArea = postal;
+                    break;
+                }
             }
+        }
+
+        /*
+         * 2. no plz -> pip
+         */
+        if (!baseArea)
+        {
+            auto postalAreas =
+                helper::pointInPolygon(
+                    road.nodes[0],
+                    hierarchy.postalCodes);
+
+            if (!postalAreas.empty())
+            {
+                baseArea =
+                    const_cast<AdminArea *>(postalAreas.front());
+
+                road.postcode =
+                    baseArea->postal_code;
+            }
+        }
+
+        /*
+         * 3. use ParentAreas
+         */
+        if (baseArea)
+        {
+            static constexpr std::array<int, 5> levels =
+                {
+                    2, 4, 6, 8, 9};
+
+            for (int level : levels)
+            {
+                const AdminArea *parent =
+                    baseArea->parentAreas[level];
+
+                if (!parent)
+                    continue;
+
+                switch (level)
+                {
+                case 2:
+                    road.country = parent->name;
+                    break;
+
+                case 4:
+                    road.state = parent->name;
+                    break;
+
+                case 6:
+                    road.county = parent->name;
+                    break;
+
+                case 8:
+                case 9:
+                    if (road.city.empty())
+                        road.city = parent->name;
+                    break;
+                }
+            }
+        }
+
+        /*
+         * 4. only test missing levels
+         */
+        auto findLevel =
+            [&](int level)
+        {
+            auto result =
+                helper::pointInPolygon(
+                    road.nodes[0],
+                    hierarchy.adminAreaByLevel[level]);
+
+            return result.empty() ? nullptr : result.front();
+        };
+
+        if (road.country.empty())
+        {
+            if (auto a = findLevel(2))
+                road.country = a->name;
+        }
+
+        if (road.state.empty())
+        {
+            if (auto a = findLevel(4))
+                road.state = a->name;
+        }
+
+        if (road.county.empty())
+        {
+            if (auto a = findLevel(6))
+                road.county = a->name;
+        }
+
+        if (road.city.empty())
+        {
+            if (auto a = findLevel(8))
+                road.city = a->name;
+        }
+
+        if (road.city.empty())
+        {
+            if (auto a = findLevel(9))
+                road.city = a->name;
         }
     }
 
@@ -632,30 +689,15 @@ void PreProcessingUnit::preprocessBuildings(
 
     auto startTimeTotal = std::chrono::steady_clock::now();
 
-    // BB of all objects
-    // TODO: This should also be applied to RoadHandler when these objects also count to my ReverseGeocoder
-    std::tuple<Point, Point> GeocoderObjectBB(
-        Point{std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity()},
-        Point{-std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()});
-
-    for (auto &building : buildings)
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < static_cast<int>(buildings.size()); ++i)
     {
-        helper::updateObjectBoundingBox(building.centroid, GeocoderObjectBB);
-
-        // TODO: For this PIP test sometimes it should be good to use not lat lon but use projections to x/y
-        // TODO: (lat lon are not coordinates on a plane)
-        // maybe use projections to x,y for every lat lon
-
-        buildingInPolygonTest(building, adminHierarchy);
+        buildingInPolygonTest(
+            buildings[i],
+            adminHierarchy);
     }
 
     auto startTimeGridBuild = std::chrono::steady_clock::now();
-
-    grid.initialize(std::get<0>(GeocoderObjectBB).lat,
-                    std::get<0>(GeocoderObjectBB).lon,
-                    std::get<1>(GeocoderObjectBB).lat,
-                    std::get<1>(GeocoderObjectBB).lon,
-                    0.1);
 
     buildGrid(grid, buildings);
 
@@ -713,9 +755,10 @@ void PreProcessingUnit::preprocessRoads(
 
     roads = std::move(result);
 
-    for (auto &road : roads)
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < static_cast<int>(roads.size()); ++i)
     {
-        roadInPolygonTest(road, adminHierarchy);
+        roadInPolygonTest(roads[i], adminHierarchy);
     }
 
     auto endTime = std::chrono::steady_clock::now();

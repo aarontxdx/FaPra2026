@@ -23,7 +23,7 @@
 
 using namespace osmium;
 
-void PBFLoader::extractFile(
+std::tuple<Point, Point> PBFLoader::extractFile(
     std::vector<Building> &buildings,
     std::vector<AdminArea> &adminAreas,
     std::vector<Road> &roads,
@@ -46,7 +46,9 @@ void PBFLoader::extractFile(
     AreaHandler area_handler{};
     area_handler.set_admin_vector(adminAreas);
 
-    BuildingHandler building_handler{buildings};
+    BuildingHandler building_handler{
+        buildings,
+    };
 
     RoadHandler road_handler{roads};
 
@@ -99,4 +101,6 @@ void PBFLoader::extractFile(
 
     std::cout << "Load process finished! \n\n";
     std::cout << "Total Load Time: " << applyDuration.count() << " s\n\n";
+
+    return building_handler.getOBB();
 }

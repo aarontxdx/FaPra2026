@@ -472,6 +472,17 @@ void Geocoder::index(Building &b)
     addToken(b.postcode, &b);
 }
 
+void Geocoder::index(Road &r)
+{
+    addToken(r.name, &r);
+
+    addToken(r.city, &r);
+
+    addToken(
+        geocoder::objects::toString(r.type),
+        &r);
+}
+
 std::vector<QueryResult> Geocoder::searchReverseIndex(
     const std::string &inputText)
 {
@@ -739,17 +750,6 @@ std::vector<QueryResult> Geocoder::mergeResults(
               });
 
     return result;
-}
-
-void Geocoder::index(Road &r)
-{
-    addToken(r.name, &r);
-
-    addToken(r.city, &r);
-
-    addToken(
-        geocoder::objects::toString(r.type),
-        &r);
 }
 
 size_t Geocoder::memoryUsageReverseIndex() const

@@ -1,7 +1,10 @@
 #pragma once
 
+#include "DataStructures/Grid.hpp"
 #include "GeocoderObjects/Building.hpp"
 #include "Utils/UtilFunctions.hpp"
+
+#include <tuple>
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/algorithms/point_on_surface.hpp>
@@ -55,6 +58,11 @@ public:
     explicit BuildingHandler(std::vector<Building> &out)
         : buildings(out) {}
 
+    std::tuple<Point, Point> getOBB()
+    {
+        return mGeocoderObjectBB;
+    }
+
     void way(const osmium::Way &way) noexcept
     {
         const auto &tags = way.tags();
@@ -83,6 +91,8 @@ public:
 
         b.centroid = helper::representativePoint(poly);
 
+        helper::updateObjectBoundingBox(b.centroid, mGeocoderObjectBB);
+
         b.housenumber = tags.get_value_by_key("addr:housenumber", "");
         b.street = tags.get_value_by_key("addr:street", "");
         b.postcode = tags.get_value_by_key("addr:postcode", "");
@@ -101,4 +111,12 @@ public:
 
 private:
     std::vector<Building> &buildings;
+
+    std::tuple<Point, Point> mGeocoderObjectBB{
+        Point{
+            std::numeric_limits<double>::infinity(),
+            std::numeric_limits<double>::infinity()},
+        Point{
+            -std::numeric_limits<double>::infinity(),
+            -std::numeric_limits<double>::infinity()}};
 };

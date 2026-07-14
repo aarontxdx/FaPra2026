@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
     AdminHierarchy adminHierarchy;
     Grid grid{};
 
-    Debug::DebugBreak();
+    // Debug::DebugBreak();
 
     if (fs::path(inputFile).extension() == ".pbf")
     {
@@ -199,11 +199,18 @@ int main(int argc, char *argv[])
                   << inputFile
                   << std::endl;
 
-        loader.extractFile(
+        auto boundingBox = loader.extractFile(
             buildings,
             adminAreas,
             roads,
             inputFile);
+
+        grid = Grid(
+            std::get<0>(boundingBox).lat,
+            std::get<0>(boundingBox).lon,
+            std::get<1>(boundingBox).lat,
+            std::get<1>(boundingBox).lon,
+            0.1);
 
         std::cout
             << "\nFiles extracted..."
@@ -324,7 +331,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    Debug::DebugBreak();
+    // Debug::DebugBreak();
 
     ReverseGeocoder reverseGeocoder{buildings, adminAreas, roads, grid};
 
@@ -333,11 +340,11 @@ int main(int argc, char *argv[])
 
     Geocoder geocoder{adminAreas, buildings, roads};
 
-    Debug::DebugBreak();
+    // Debug::DebugBreak();
 
     geocoder.createReverseIndex();
 
-    Debug::DebugBreak();
+    // Debug::DebugBreak();
 
     geocoder.createNGramIndex();
 

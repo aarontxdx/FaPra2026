@@ -15,7 +15,7 @@ public:
      *
      * @param path file path of .pbf
      */
-    void extractFile(std::vector<Building> &buildings,
-                     std::vector<AdminArea> &adminAreas,
-                     std::vector<Road> &roads, const std::string &path);
+    std::tuple<Point, Point> extractFile(std::vector<Building> &buildings,
+                                         std::vector<AdminArea> &adminAreas,
+                                         std::vector<Road> &roads, const std::string &path);
 };

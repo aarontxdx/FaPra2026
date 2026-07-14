@@ -31,12 +31,14 @@ find_package(ZLIB REQUIRED)
 find_package(BZip2 REQUIRED)
 find_package(EXPAT REQUIRED)
 find_package(Threads REQUIRED)
+find_package(OpenMP REQUIRED)
 
 target_link_libraries(backend PRIVATE
     ZLIB::ZLIB
     BZip2::BZip2
     EXPAT::EXPAT
     Threads::Threads
+    OpenMP::OpenMP_CXX
 )
 
 # Server-Executable
