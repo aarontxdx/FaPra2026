@@ -45,7 +45,6 @@ namespace helper
         size += b.housenumber.capacity();
         size += b.street.capacity();
 
-        size += b.polygon.capacity() * sizeof(Point);
         size += b.adminAreas.capacity() * sizeof(AdminArea *);
 
         return size;

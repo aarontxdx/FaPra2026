@@ -3,10 +3,51 @@
 #include "GeocoderObjects/Building.hpp"
 #include "Utils/UtilFunctions.hpp"
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/algorithms/point_on_surface.hpp>
 #include <osmium/handler.hpp>
 #include <osmium/osm/way.hpp>
 #include <osmium/osm/area.hpp>
 #include <osmium/osm/node.hpp>
+
+namespace helper
+{
+    namespace bg = boost::geometry;
+
+    using BoostPoint =
+        bg::model::point<double, 2, bg::cs::cartesian>;
+
+    /**
+     * This function finds a point on a polygon
+     * Used to find a representative Point per building
+     *
+     * @param poly the polygon to test
+     *
+     * @return Point on the given polygon
+     *
+     * TODO: Maybe I have to do a point in polygon test before setting a new centroid
+     */
+    static Point representativePoint(const std::vector<Point> &poly)
+    {
+        bg::model::polygon<BoostPoint> polygon;
+
+        for (const auto &p : poly)
+        {
+            bg::append(
+                polygon.outer(),
+                BoostPoint(p.lat, p.lon));
+        }
+
+        bg::correct(polygon);
+
+        BoostPoint result;
+        bg::point_on_surface(polygon, result);
+
+        return {
+            result.get<0>(),
+            result.get<1>()};
+    }
+}
 
 class BuildingHandler : public osmium::handler::Handler
 {
@@ -40,9 +81,7 @@ public:
 
         Building b;
 
-        b.polygon = std::move(poly);
-
-        b.centroid = helper::computeCentroid(b.polygon);
+        b.centroid = helper::representativePoint(poly);
 
         b.housenumber = tags.get_value_by_key("addr:housenumber", "");
         b.street = tags.get_value_by_key("addr:street", "");

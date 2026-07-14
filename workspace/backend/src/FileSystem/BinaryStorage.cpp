@@ -202,7 +202,6 @@ void BinaryStorage::writeBuilding(
     std::ofstream &out,
     const Building &building)
 {
-    // GeocoderObject
     writeString(out, building.name);
     writeString(out, building.country);
     writeString(out, building.state);
@@ -210,21 +209,13 @@ void BinaryStorage::writeBuilding(
     writeString(out, building.city);
     writeString(out, building.postcode);
 
-    // Building own data
     writeString(out, building.housenumber);
     writeString(out, building.street);
 
-    // Polygon
-    writePoints(
-        out,
-        building.polygon);
-
-    // Centroid
     writePoint(
         out,
         building.centroid);
 
-    // AdminArea Referenzen
     uint32_t count =
         static_cast<uint32_t>(
             building.adminAreas.size());
@@ -236,6 +227,7 @@ void BinaryStorage::writeBuilding(
     for (const auto *area : building.adminAreas)
     {
         int64_t id = area->id;
+
         out.write(
             reinterpret_cast<char *>(&id),
             sizeof(id));
@@ -247,7 +239,6 @@ void BinaryStorage::readBuilding(
     Building &building,
     const std::unordered_map<int64_t, AdminArea *> &adminAreaMap)
 {
-    // GeocoderObject
     readString(in, building.name);
     readString(in, building.country);
     readString(in, building.state);
@@ -255,7 +246,6 @@ void BinaryStorage::readBuilding(
     readString(in, building.city);
     readString(in, building.postcode);
 
-    // Building Daten
     readString(
         in,
         building.housenumber);
@@ -264,17 +254,10 @@ void BinaryStorage::readBuilding(
         in,
         building.street);
 
-    // Polygon
-    readPoints(
-        in,
-        building.polygon);
-
-    // Centroid
     readPoint(
         in,
         building.centroid);
 
-    // AdminArea Links
     uint32_t count;
 
     in.read(
@@ -286,10 +269,13 @@ void BinaryStorage::readBuilding(
     for (uint32_t i = 0; i < count; i++)
     {
         int64_t id;
+
         in.read(
             reinterpret_cast<char *>(&id),
             sizeof(id));
+
         auto it = adminAreaMap.find(id);
+
         if (it != adminAreaMap.end())
         {
             building.adminAreas.push_back(

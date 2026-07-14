@@ -26,8 +26,8 @@ public:
     Building findNearestBuilding(double lat, double lon);
 
 private:
-    const std::vector<Building> m_buildings;
-    const std::vector<AdminArea> m_adminAreas;
-    const std::vector<Road> m_roads;
-    const Grid m_grid;
+    const std::vector<Building> &m_buildings;
+    const std::vector<AdminArea> &m_adminAreas;
+    const std::vector<Road> &m_roads;
+    const Grid &m_grid;
 };

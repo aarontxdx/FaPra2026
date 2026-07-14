@@ -396,37 +396,6 @@ namespace
             (int)std::round(p.lon * scale)};
     }
 
-    namespace bg = boost::geometry;
-
-    using BoostPoint = bg::model::point<double, 2, bg::cs::cartesian>;
-
-    /**
-     * This function finds a point on a polygon
-     * Used to find a representative Point per building
-     *
-     * @param poly the polygon to test
-     *
-     * @return Point on the given polygon
-     *
-     * TODO: Maybe I have to do a point in polygon test before setting a new centroid
-     */
-    Point representativePoint(const std::vector<Point> &poly)
-    {
-        namespace bg = boost::geometry;
-
-        bg::model::polygon<BoostPoint> polygon;
-
-        for (const auto &p : poly)
-            bg::append(polygon.outer(), BoostPoint(p.lat, p.lon));
-
-        bg::correct(polygon);
-
-        BoostPoint result;
-        bg::point_on_surface(polygon, result);
-
-        return {result.get<0>(), result.get<1>()};
-    }
-
     /**
      * This creates a graph from the given road group which is done by connecting end points.
      * It calculates the node degree and adjacence lists
@@ -671,11 +640,7 @@ void PreProcessingUnit::preprocessBuildings(
 
     for (auto &building : buildings)
     {
-        building.centroid = representativePoint(building.polygon);
         helper::updateObjectBoundingBox(building.centroid, GeocoderObjectBB);
-
-        building.polygon.clear();
-        building.polygon.shrink_to_fit();
 
         // TODO: For this PIP test sometimes it should be good to use not lat lon but use projections to x/y
         // TODO: (lat lon are not coordinates on a plane)

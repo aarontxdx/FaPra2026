@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <regex>
 
 #include <chrono>
 #include <iostream>
@@ -137,6 +136,53 @@ namespace
             return '?'; // fallback
         }
     }
+
+    void replacePunctuation(std::string &str)
+    {
+        for (char &c : str)
+        {
+            switch (c)
+            {
+            case '.':
+            case ',':
+            case ';':
+            case ':':
+            case '!':
+            case '?':
+            case '\'':
+            case '"':
+                c = ' ';
+                break;
+            }
+        }
+    }
+
+    void removeDuplicateSpaces(std::string &str)
+    {
+        std::string result;
+        result.reserve(str.size());
+
+        bool lastWasSpace = false;
+
+        for (char c : str)
+        {
+            if (std::isspace(static_cast<unsigned char>(c)))
+            {
+                if (!lastWasSpace)
+                {
+                    result.push_back(' ');
+                    lastWasSpace = true;
+                }
+            }
+            else
+            {
+                result.push_back(c);
+                lastWasSpace = false;
+            }
+        }
+
+        str = std::move(result);
+    }
 }
 
 Geocoder::Geocoder(std::vector<AdminArea> &adminAreas,
@@ -179,15 +225,9 @@ void Geocoder::normalize(std::string &textInput)
     replaceAll(textInput, "str.", "strasse");
     replaceAll(textInput, "str ", "strasse ");
 
-    // replace punctuation marks
-    textInput = std::regex_replace(textInput,
-                                   std::regex("[.,;:!?'\"]"),
-                                   " ");
+    replacePunctuation(textInput);
 
-    // replace multiple spaces
-    textInput = std::regex_replace(textInput,
-                                   std::regex("\\s+"),
-                                   " ");
+    removeDuplicateSpaces(textInput);
 
     // replace spaces at the end and the beginning
     if (!textInput.empty())
@@ -244,6 +284,7 @@ void Geocoder::createReverseIndex()
 
     std::cout << "createReverseIndex total duration: "
               << totalTime.count() << " ms\n"
+              << "total memoryUsage: " << memoryUsageReverseIndex() / 1024 / 1024 << " MB\n"
               << std::endl;
 }
 

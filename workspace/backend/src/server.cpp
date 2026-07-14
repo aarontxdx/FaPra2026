@@ -1,5 +1,6 @@
 #include "BinaryStorage.hpp"
 #include "DataStructures/Grid.hpp"
+#include "Debug/DebugHelper.hpp"
 #include "Geocoder.hpp"
 #include "PBFLoader.hpp"
 #include "PreProcessingUnit.hpp"
@@ -190,6 +191,8 @@ int main(int argc, char *argv[])
     AdminHierarchy adminHierarchy;
     Grid grid{};
 
+    Debug::DebugBreak();
+
     if (fs::path(inputFile).extension() == ".pbf")
     {
         std::cout << "Loading PBF file: "
@@ -321,6 +324,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Debug::DebugBreak();
+
     ReverseGeocoder reverseGeocoder{buildings, adminAreas, roads, grid};
 
     std::cout << "Starting Geocoder...\n"
@@ -328,7 +333,12 @@ int main(int argc, char *argv[])
 
     Geocoder geocoder{adminAreas, buildings, roads};
 
+    Debug::DebugBreak();
+
     geocoder.createReverseIndex();
+
+    Debug::DebugBreak();
+
     geocoder.createNGramIndex();
 
     std::cout << "Reverse Geocoder and Geocoder started...\n\n"
