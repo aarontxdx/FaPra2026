@@ -41,6 +41,14 @@ public:
     void createNGramIndex();
 
 private:
+    struct IndexEntry
+    {
+        SearchObject object;
+        int weight;
+    };
+
+    using ReverseIndex = std::unordered_map<std::string, std::vector<IndexEntry>>;
+
     /**
      * normalization of a given string
      *
@@ -55,12 +63,6 @@ private:
      * @return token list
      */
     std::vector<Token> tokenize();
-
-    struct IndexEntry
-    {
-        SearchObject object;
-        int weight;
-    };
 
     /**
      * connect token which belong together
@@ -92,6 +94,7 @@ private:
      */
     template <typename T>
     void addToken(
+        ReverseIndex &index,
         std::string text,
         T *object,
         int weight = 1)
@@ -101,7 +104,8 @@ private:
 
         normalize(text);
 
-        mIndex[text].push_back(IndexEntry{object, weight});
+        index[text].push_back(
+            IndexEntry{object, weight});
     }
 
     /**
@@ -112,9 +116,15 @@ private:
     /**
      * add all attributes to the inverted index list
      */
-    void index(AdminArea &adminArea);
-    void index(Building &building);
-    void index(Road &road);
+    void index(
+        AdminArea &area,
+        ReverseIndex &index);
+    void index(
+        Building &b,
+        ReverseIndex &index);
+    void index(
+        Road &r,
+        ReverseIndex &index);
 
     std::vector<AdminArea> &mAdminAreas;
     std::vector<Building> &mBuildings;

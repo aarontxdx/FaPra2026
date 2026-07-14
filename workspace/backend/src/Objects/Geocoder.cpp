@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <omp.h>
 #include <sstream>
 
 using namespace geocoder::search;
@@ -267,25 +268,105 @@ void Geocoder::createReverseIndex()
 {
     auto start = std::chrono::steady_clock::now();
 
+    int threads = omp_get_max_threads();
+
+    std::vector<ReverseIndex> localIndexes(threads);
+
+    /*
+     * AdminAreas
+     */
     std::cout << "ReverseIndex build for areas..." << std::endl;
-    for (auto &area : mAdminAreas)
-        index(area);
 
+#pragma omp parallel
+    {
+        int id = omp_get_thread_num();
+        auto &local = localIndexes[id];
+
+#pragma omp for schedule(static)
+        for (int i = 0;
+             i < static_cast<int>(mAdminAreas.size());
+             i++)
+        {
+            index(
+                mAdminAreas[i],
+                local);
+        }
+    }
+
+    /*
+     * Buildings
+     */
     std::cout << "ReverseIndex build for buildings..." << std::endl;
-    for (auto &building : mBuildings)
-        index(building);
 
+#pragma omp parallel
+    {
+        int id = omp_get_thread_num();
+        auto &local = localIndexes[id];
+
+#pragma omp for schedule(static)
+        for (int i = 0;
+             i < static_cast<int>(mBuildings.size());
+             i++)
+        {
+            index(
+                mBuildings[i],
+                local);
+        }
+    }
+
+    /*
+     * Roads
+     */
     std::cout << "ReverseIndex build for roads..." << std::endl;
-    for (auto &road : mRoads)
-        index(road);
+
+#pragma omp parallel
+    {
+        int id = omp_get_thread_num();
+        auto &local = localIndexes[id];
+
+#pragma omp for schedule(static)
+        for (int i = 0;
+             i < static_cast<int>(mRoads.size());
+             i++)
+        {
+            index(
+                mRoads[i],
+                local);
+        }
+    }
+
+    /*
+     * Merge local indexes
+     */
+    std::cout << "Merging ReverseIndex..." << std::endl;
+
+    for (auto &local : localIndexes)
+    {
+        for (auto &[token, entries] : local)
+        {
+            auto &target = mIndex[token];
+
+            target.insert(
+                target.end(),
+                entries.begin(),
+                entries.end());
+        }
+    }
 
     auto end = std::chrono::steady_clock::now();
-    auto totalTime = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
-    std::cout << "createReverseIndex total duration: "
-              << totalTime.count() << " ms\n"
-              << "total memoryUsage: " << memoryUsageReverseIndex() / 1024 / 1024 << " MB\n"
-              << std::endl;
+    auto totalTime =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            end - start);
+
+    std::cout
+        << "createReverseIndex total duration: "
+        << totalTime.count()
+        << " ms\n"
+        << "total memoryUsage: "
+        << memoryUsageReverseIndex() / 1024 / 1024
+        << " MB\n"
+        << std::endl;
 }
 
 void Geocoder::createNGramIndex()
@@ -390,6 +471,50 @@ std::vector<Token> Geocoder::tokenize()
     return tokens;
 }
 
+void Geocoder::index(
+    AdminArea &area,
+    ReverseIndex &index)
+{
+    addToken(index, area.name, &area);
+
+    addToken(index, area.country, &area);
+    addToken(index, area.state, &area);
+    addToken(index, area.county, &area);
+    addToken(index, area.city, &area);
+
+    addToken(index, area.postcode, &area);
+}
+
+void Geocoder::index(
+    Building &b,
+    ReverseIndex &index)
+{
+    addToken(index, b.name, &b);
+
+    addToken(index, b.street, &b);
+    addToken(index, b.housenumber, &b);
+
+    addToken(index, b.country, &b);
+    addToken(index, b.state, &b);
+    addToken(index, b.county, &b);
+    addToken(index, b.city, &b);
+    addToken(index, b.postcode, &b);
+}
+
+void Geocoder::index(
+    Road &r,
+    ReverseIndex &index)
+{
+    addToken(index, r.name, &r);
+
+    addToken(index, r.city, &r);
+
+    addToken(
+        index,
+        geocoder::objects::toString(r.type),
+        &r);
+}
+
 std::vector<MatchFeatures>
 Geocoder::extendedSearch(const std::string &token)
 {
@@ -413,74 +538,12 @@ Geocoder::extendedSearch(const std::string &token)
             feature.exact = true;
             feature.prefix = true;
             feature.substring = true;
-            feature.queryTokenCount = 1;
-
-            result.push_back(feature);
-        }
-    }
-
-    for (const auto &[key, values] : mIndex)
-    {
-        if (key == norm)
-            continue;
-
-        bool prefix = key.rfind(norm, 0) == 0;
-        bool substring = key.find(norm) != std::string::npos;
-
-        if (!prefix && !substring)
-            continue;
-
-        for (const auto &entry : values)
-        {
-            MatchFeatures feature;
-
-            feature.object = entry.object;
-            feature.prefix = prefix;
-            feature.substring = substring;
-            feature.queryTokenCount = 1;
 
             result.push_back(feature);
         }
     }
 
     return result;
-}
-
-void Geocoder::index(AdminArea &area)
-{
-    addToken(area.name, &area);
-
-    addToken(area.country, &area);
-    addToken(area.state, &area);
-    addToken(area.county, &area);
-    addToken(area.city, &area);
-
-    addToken(area.postcode, &area);
-}
-
-void Geocoder::index(Building &b)
-{
-    addToken(b.name, &b);
-
-    addToken(b.street, &b);
-    addToken(b.housenumber, &b);
-
-    addToken(b.country, &b);
-    addToken(b.state, &b);
-    addToken(b.county, &b);
-    addToken(b.city, &b);
-    addToken(b.postcode, &b);
-}
-
-void Geocoder::index(Road &r)
-{
-    addToken(r.name, &r);
-
-    addToken(r.city, &r);
-
-    addToken(
-        geocoder::objects::toString(r.type),
-        &r);
 }
 
 std::vector<QueryResult> Geocoder::searchReverseIndex(
