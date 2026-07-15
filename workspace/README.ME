@@ -19,3 +19,160 @@ or
 
 from workspace:
 "./frontend/startFrontend.sh"
+
+
+
+
+Assignment 3, Exercise 3:
+
+# Geocoder Search Strategy
+
+## Overview
+
+The geocoder supports multiple search strategies to handle natural language queries and return the most relevant results. Since a query can match multiple objects (e.g. streets, buildings, or administrative areas), results are ranked using a scoring system instead of returning matches in arbitrary order.
+
+## Query Interpretation
+
+User queries are first normalized:
+
+* Convert text to lowercase
+* Remove punctuation
+* Normalize special characters (e.g. ä → a, ß → ss)
+* Normalize common abbreviations (e.g. "str." → "strasse")
+
+The query is then split into tokens. Tokens are analyzed to detect administrative areas (cities, states, postal codes). Area tokens are separated from the main search because they are used as context rather than the main search target.
+
+Example:
+
+```
+"Universität Stuttgart Pfaffenwaldring 57"
+```
+
+is interpreted as:
+
+* Main search:
+
+  ```
+  Universität Stuttgart
+  ```
+* Additional context:
+
+  ```
+  Pfaffenwaldring 57
+  ```
+
+## Search Methods
+
+### Reverse Index Search
+
+The reverse index provides fast exact token lookup.
+
+It is used for:
+
+* Exact names
+* Streets
+* Cities
+* Buildings
+* Postal codes
+
+Numbers such as house numbers are not indexed as independent search terms. Instead, they are checked afterwards as attributes of candidate buildings.
+
+### N-Gram Search
+
+The N-Gram index is used for fuzzy matching.
+
+It allows:
+
+* Typo tolerance
+* Partial matches
+* Incomplete words
+
+Example:
+
+```
+"pfaffenwald"
+```
+
+can still match:
+
+```
+"Pfaffenwaldring"
+```
+
+House numbers are excluded from the N-Gram search because they do not contain useful textual similarity. They are evaluated separately during ranking.
+
+## Result Ranking
+
+Each candidate receives a score based on multiple features:
+
+### Text Match
+
+The strongest influence comes from how well the query matches the object:
+
+* Exact matches receive the highest score
+* Prefix matches receive a smaller bonus
+* Substring and fuzzy N-Gram matches contribute additional points
+
+### Object Type
+
+Different object types receive different priorities:
+
+* Administrative areas are easier to identify and receive a high base score
+* Streets are prioritized over buildings
+* Buildings require more information and therefore receive a lower base score
+
+### Area Context
+
+Detected areas improve ranking.
+
+Example:
+
+Query:
+
+```
+"Uni Stuttgart"
+```
+
+A result inside Stuttgart receives a higher score than an identical name in another city.
+
+### Attributes
+
+Additional attributes improve the ranking:
+
+* Matching street names
+* Matching house numbers
+* Matching postal codes
+
+A building where both street and house number match receives a significant bonus.
+
+## Handling Ambiguous Queries
+
+Because natural language queries are ambiguous, multiple candidates are kept.
+
+Example:
+
+```
+"Rathaus"
+```
+
+may return several buildings or areas.
+
+The ranking system orders them by:
+
+1. Text similarity
+2. Object relevance
+3. Geographic context
+4. Additional matching attributes
+
+The highest scoring candidates are returned first.
+
+## Design Decisions
+
+The main design goal was to combine fast lookup with flexible search.
+
+* Reverse indexing provides performance for common exact searches.
+* N-Grams improve usability for imperfect input.
+* Separating context (areas) from the main search prevents city names from dominating the ranking.
+* Treating house numbers as attributes instead of search terms avoids incorrect matches while still allowing precise building searches.
+
+This approach allows the geocoder to interpret natural language queries while maintaining fast search performance.
