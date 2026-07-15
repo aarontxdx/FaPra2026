@@ -60,6 +60,8 @@ std::tuple<Point, Point> PBFLoader::extractFile(
     filter.add_rule(true, "boundary", "administrative");
     filter.add_rule(true, "boundary", "postal_code");
     filter.add_rule(true, "building", "*");
+    filter.add_rule(true, "building", "*");
+    filter.add_rule(true, "type", "multipolygon");
     filter.add_rule(true, "highway", "motorway");
     filter.add_rule(true, "highway", "trunk");
     filter.add_rule(true, "highway", "primary");
@@ -83,9 +85,18 @@ std::tuple<Point, Point> PBFLoader::extractFile(
     {
         std::cerr << "Pass 2 (mp_manager, buildings, roads)...\n";
         osmium::io::Reader reader{path};
-        osmium::apply(reader, location_handler, building_handler, road_handler,
-                      mp_manager.handler([&area_handler](osmium::memory::Buffer &&buffer)
-                                         { osmium::apply(buffer, area_handler); }));
+        osmium::apply(reader,
+                      location_handler,
+                      building_handler,
+                      road_handler,
+                      mp_manager.handler(
+                          [&](osmium::memory::Buffer &&buffer)
+                          {
+                              osmium::apply(
+                                  buffer,
+                                  area_handler,
+                                  building_handler);
+                          }));
         reader.close();
         std::cerr << "Pass 2 done\n\n";
     }

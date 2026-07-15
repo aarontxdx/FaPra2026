@@ -27,28 +27,29 @@ namespace helper
      * @param poly the polygon to test
      *
      * @return Point on the given polygon
-     *
-     * TODO: Maybe I have to do a point in polygon test before setting a new centroid
      */
-    static Point representativePoint(const std::vector<Point> &poly)
+    static Point boundingBoxCenter(const std::vector<Point> &poly)
     {
-        bg::model::polygon<BoostPoint> polygon;
+        if (poly.empty())
+            return {};
+
+        double minLat = std::numeric_limits<double>::max();
+        double maxLat = std::numeric_limits<double>::lowest();
+        double minLon = std::numeric_limits<double>::max();
+        double maxLon = std::numeric_limits<double>::lowest();
 
         for (const auto &p : poly)
         {
-            bg::append(
-                polygon.outer(),
-                BoostPoint(p.lat, p.lon));
+            minLat = std::min(minLat, p.lat);
+            maxLat = std::max(maxLat, p.lat);
+
+            minLon = std::min(minLon, p.lon);
+            maxLon = std::max(maxLon, p.lon);
         }
 
-        bg::correct(polygon);
-
-        BoostPoint result;
-        bg::point_on_surface(polygon, result);
-
         return {
-            result.get<0>(),
-            result.get<1>()};
+            (minLat + maxLat) * 0.5,
+            (minLon + maxLon) * 0.5};
     }
 }
 
@@ -89,7 +90,7 @@ public:
 
         Building b;
 
-        b.centroid = helper::representativePoint(poly);
+        b.centroid = helper::boundingBoxCenter(poly);
 
         helper::updateObjectBoundingBox(b.centroid, mGeocoderObjectBB);
 
@@ -107,6 +108,81 @@ public:
         b.name.shrink_to_fit();
 
         buildings.push_back(std::move(b));
+    }
+
+    void area(const osmium::Area &area) noexcept
+    {
+        const auto &tags = area.tags();
+
+        if (!tags.has_key("building"))
+            return;
+
+        Building b;
+
+        std::vector<Point> outer;
+
+        for (const auto &ring : area.outer_rings())
+        {
+            for (const auto &node : ring)
+            {
+                if (!node.location().valid())
+                    return;
+
+                outer.emplace_back(
+                    node.location().lat(),
+                    node.location().lon());
+            }
+
+            break;
+        }
+
+        if (outer.size() < 4)
+            return;
+
+        b.centroid =
+            helper::boundingBoxCenter(outer);
+
+        helper::updateObjectBoundingBox(
+            b.centroid,
+            mGeocoderObjectBB);
+
+        b.housenumber =
+            tags.get_value_by_key(
+                "addr:housenumber",
+                "");
+
+        b.street =
+            tags.get_value_by_key(
+                "addr:street",
+                "");
+
+        b.postcode =
+            tags.get_value_by_key(
+                "addr:postcode",
+                "");
+
+        b.city =
+            tags.get_value_by_key(
+                "addr:city",
+                "");
+
+        b.country =
+            tags.get_value_by_key(
+                "addr:country",
+                "");
+
+        if (tags.has_key("name:de"))
+            b.name =
+                tags.get_value_by_key(
+                    "name:de");
+        else
+            b.name =
+                tags.get_value_by_key(
+                    "name",
+                    "");
+
+        buildings.push_back(
+            std::move(b));
     }
 
 private:
