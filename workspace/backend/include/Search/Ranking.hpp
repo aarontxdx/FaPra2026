@@ -2,33 +2,13 @@
 
 #include "GeocoderObjects/SearchObject.hpp"
 #include "Search/ObjectMatch.hpp"
+#include "Search/MatchFeature.hpp"
 
 #include <cstddef>
 #include <unordered_set>
 
 namespace geocoder::search
 {
-
-    struct MatchFeatures
-    {
-        SearchObject object;
-
-        bool exact = false;
-        bool prefix = false;
-        bool substring = false;
-
-        double ngramScore = 0.0;
-        double editScore = 0.0;
-
-        std::size_t queryTokenCount = 0;
-        std::size_t matchedQueryTokens = 0;
-
-        std::unordered_set<std::string> matchedTokens;
-
-        bool matchedStreet = false;
-        bool matchedHouseNumber = false;
-    };
-
     class Ranking
     {
     public:
@@ -88,6 +68,9 @@ namespace geocoder::search
         double completenessScore(
             const SearchObject &object,
             std::size_t queryTokenCount) const;
+
+        double areaContextScore(
+            const MatchFeatures &features) const;
     };
 
 } // namespace geocoder::search

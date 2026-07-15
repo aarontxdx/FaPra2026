@@ -5,6 +5,7 @@
 #include "Search/NGramIndex.hpp"
 #include "Search/Ranking.hpp"
 #include "Search/ObjectMatch.hpp"
+#include "Search/MatchFeature.hpp"
 
 #include <string>
 #include <vector>
@@ -73,6 +74,11 @@ private:
         const SearchObject &object,
         const std::vector<SearchObject> &areas);
 
+    void checkAreaContext(
+        MatchFeatures &feature,
+        const SearchObject &object,
+        const std::vector<SearchObject> &areas);
+
     const std::vector<IndexEntry> *extendedSearch(const std::string &token);
 
     std::vector<QueryResult> searchReverseIndex(
@@ -81,8 +87,16 @@ private:
     std::vector<QueryResult> searchNGram(
         const std::string &query);
 
+    std::vector<QueryResult> searchCombined(
+        const std::string &input);
+
     void fillAttributeMatches(
-        geocoder::search::MatchFeatures &feature,
+        MatchFeatures &feature,
+        const std::vector<std::string> &tokens);
+
+    void fillAttributeMatches(
+        ObjectMatch &match,
+        const SearchObject &object,
         const std::vector<std::string> &tokens);
 
     std::vector<QueryResult> mergeResults(

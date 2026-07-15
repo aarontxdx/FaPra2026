@@ -34,7 +34,7 @@ double Ranking::featurePrior(
 
                           if constexpr (std::is_same_v<T, AdminArea *>)
                           {
-                              return 1.0;
+                              return 0.5;
                           }
                           else if constexpr (std::is_same_v<T, Road *>)
                           {
@@ -122,8 +122,11 @@ double Ranking::finalScore(
     double match =
         matchScore(features);
 
-    const double object =
+    double object =
         objectScore(features);
+
+    double area =
+        areaContextScore(features);
 
     if (features.matchedStreet &&
         features.matchedHouseNumber)
@@ -132,10 +135,31 @@ double Ranking::finalScore(
     }
 
     return std::clamp(
-        0.75 * match +
-            0.25 * object,
+        0.65 * match +
+            0.20 * object +
+            0.30 * area,
         0.0,
         1.0);
+}
+
+double Ranking::areaContextScore(
+    const MatchFeatures &features) const
+{
+    double score = 0.0;
+
+    if (features.matchedCity)
+        score += 0.5;
+
+    if (features.matchedCounty)
+        score += 0.2;
+
+    if (features.matchedState)
+        score += 0.2;
+
+    if (features.matchedPostcode)
+        score += 0.3;
+
+    return std::clamp(score, 0.0, 1.0);
 }
 
 double Ranking::finalReverseScore(
