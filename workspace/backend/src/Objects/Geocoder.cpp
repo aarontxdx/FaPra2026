@@ -443,10 +443,15 @@ void Geocoder::index(
     Building &b,
     ReverseIndex &index)
 {
-    addToken(index, b.name, &b);
+    std::string name = b.name;
+    normalize(name);
+
+    if (!isNumberToken(name))
+    {
+        addToken(index, b.name, &b);
+    }
 
     addToken(index, b.street, &b);
-    // addToken(index, b.housenumber, &b);
 
     addToken(index, b.country, &b);
     addToken(index, b.state, &b);
@@ -972,48 +977,31 @@ std::vector<QueryResult> Geocoder::searchNGram(
     auto tokens = tokenize();
     tokens = buildSearchTokens(tokens);
 
-    std::vector<SearchObject> areaCandidates;
     std::vector<Token> searchTokens;
 
     for (const auto &token : tokens)
     {
-        const auto *entries = extendedSearch(token);
-
-        if (!entries)
-        {
-            searchTokens.push_back(token);
+        // Hausnummern niemals fuzzy suchen
+        if (isNumberToken(token))
             continue;
-        }
 
-        bool isAreaToken = false;
-
-        for (const auto &entry : *entries)
-        {
-            if (isAdminArea(entry.object))
-            {
-                areaCandidates.push_back(entry.object);
-                isAreaToken = true;
-            }
-        }
-
-        if (!isAreaToken)
-            searchTokens.push_back(token);
+        searchTokens.push_back(token);
     }
 
-    std::string searchString;
+    std::vector<MatchFeatures> allFeatures;
 
-    for (size_t i = 0; i < searchTokens.size(); ++i)
+    for (const auto &token : searchTokens)
     {
-        if (i)
-            searchString += " ";
+        auto features =
+            mNGramIndex->query(token, 20);
 
-        searchString += searchTokens[i];
+        for (auto &feature : features)
+        {
+            allFeatures.push_back(feature);
+        }
     }
 
-    auto features =
-        mNGramIndex->query(searchString, 20);
-
-    for (auto &feature : features)
+    for (auto &feature : allFeatures)
     {
         auto it = matches.find(feature.object);
 
@@ -1027,32 +1015,20 @@ std::vector<QueryResult> Geocoder::searchNGram(
         {
             auto &existing = it->second;
 
-            // mehrere Token-Treffer zusammenführen
             existing.matchedTokens.insert(
                 feature.matchedTokens.begin(),
                 feature.matchedTokens.end());
 
-            // bester NGram Score zählt
-            existing.ngramScore =
-                std::max(
-                    existing.ngramScore,
-                    feature.ngramScore);
+            existing.ngramScore +=
+                feature.ngramScore;
 
-            // bester Edit Score zählt
-            existing.editScore =
-                std::max(
-                    existing.editScore,
-                    feature.editScore);
+            existing.editScore +=
+                feature.editScore;
         }
     }
 
     for (auto &[object, feature] : matches)
     {
-        checkAreaContext(
-            feature,
-            object,
-            areaCandidates);
-
         fillAttributeMatches(
             feature,
             tokens);
@@ -1065,24 +1041,17 @@ std::vector<QueryResult> Geocoder::searchNGram(
                 feature.matchedTokens.size(),
                 searchTokens.size());
 
+        if (feature.matchedTokens.size() > 1)
+        {
+            feature.ngramScore /=
+                feature.matchedTokens.size();
+        }
+
         double score =
             ranking.finalScore(feature);
 
-        double coverage =
-            static_cast<double>(
-                std::min(
-                    feature.matchedQueryTokens,
-                    feature.queryTokenCount)) /
-            static_cast<double>(
-                std::max<size_t>(
-                    1,
-                    feature.queryTokenCount));
-
-        score *= (0.8 + 0.2 * coverage);
-
         results.push_back(
-            {object,
-             score});
+            {object, score});
     }
 
     std::sort(
@@ -1100,106 +1069,75 @@ std::vector<QueryResult> Geocoder::searchNGram(
 std::vector<QueryResult> Geocoder::searchCombined(
     const std::string &input)
 {
-    mQueryString = input;
+    /*
+        Combined:
+        - ReverseIndex ist die Basis
+        - NGram ergänzt nur unbekannte Tokens
+        - Reverse Ranking bleibt führend
+    */
+
+    auto reverseResults =
+        searchReverseIndex(input);
 
     auto tokens = tokenize();
     tokens = buildSearchTokens(tokens);
 
-    std::vector<Token> reverseTokens;
     std::vector<Token> ngramTokens;
-
-    /*
-        Tokens aufteilen:
-        - existiert im ReverseIndex -> Reverse
-        - existiert nicht -> NGram
-    */
 
     for (const auto &token : tokens)
     {
         if (token.empty())
             continue;
 
-        // Hausnummern niemals NGram geben
+        /*
+            Hausnummern niemals NGram
+        */
         if (isNumberToken(token))
             continue;
 
         const auto *entries =
             extendedSearch(token);
 
-        if (entries)
-        {
-            reverseTokens.push_back(token);
-        }
-        else
+        /*
+            Nur unbekannte Tokens
+            an NGram geben
+        */
+        if (!entries)
         {
             ngramTokens.push_back(token);
         }
     }
 
-    std::vector<QueryResult> results;
-
     /*
-        Reverse Search
+        Keine unbekannten Tokens:
+        Reverse Ergebnis direkt zurückgeben
     */
-
-    if (!reverseTokens.empty())
+    if (ngramTokens.empty())
     {
-        std::string reverseQuery;
-
-        for (size_t i = 0;
-             i < reverseTokens.size();
-             i++)
-        {
-            if (i)
-                reverseQuery += " ";
-
-            reverseQuery += reverseTokens[i];
-        }
-
-        auto reverseResults =
-            searchReverseIndex(reverseQuery);
-
-        results.insert(
-            results.end(),
-            reverseResults.begin(),
-            reverseResults.end());
+        return reverseResults;
     }
 
     /*
-        NGram nur für unbekannte Tokens
+        NGram Suche für unbekannte Tokens
     */
 
-    if (!ngramTokens.empty())
+    std::string ngramQuery;
+
+    for (size_t i = 0;
+         i < ngramTokens.size();
+         i++)
     {
-        std::string ngramQuery;
+        if (i)
+            ngramQuery += " ";
 
-        for (size_t i = 0;
-             i < ngramTokens.size();
-             i++)
-        {
-            if (i)
-                ngramQuery += " ";
-
-            ngramQuery += ngramTokens[i];
-        }
-
-        auto ngramResults =
-            searchNGram(ngramQuery);
-
-        /*
-            NGram niedriger gewichten
-        */
-
-        for (auto &r : ngramResults)
-        {
-            r.score *= 0.5;
-
-            results.push_back(r);
-        }
+        ngramQuery += ngramTokens[i];
     }
 
+    auto ngramResults =
+        searchNGram(ngramQuery);
+
     /*
-        gleiche Objekte zusammenführen
+        NGram Scores speichern
     */
 
     std::unordered_map<
@@ -1207,36 +1145,63 @@ std::vector<QueryResult> Geocoder::searchCombined(
         double,
         SearchObjectHash,
         SearchObjectEqual>
-        merged;
+        ngramScores;
 
-    for (auto &r : results)
+    for (auto &r : ngramResults)
     {
-        merged[r.object] =
-            std::max(
-                merged[r.object],
-                r.score);
+        ngramScores[r.object] =
+            r.score;
     }
 
-    std::vector<QueryResult> final;
+    /*
+        Reverse Ranking bleibt Basis
+    */
 
-    final.reserve(merged.size());
-
-    for (auto &[obj, score] : merged)
+    for (auto &r : reverseResults)
     {
-        final.push_back(
-            {obj, score});
+        auto it =
+            ngramScores.find(r.object);
+
+        if (it != ngramScores.end())
+        {
+            /*
+                kleiner Bonus für Fuzzy Treffer
+            */
+            r.score +=
+                it->second * 0.15;
+
+            r.score =
+                std::min(
+                    r.score,
+                    1.0);
+        }
+    }
+
+    /*
+        Falls Reverse nichts gefunden hat,
+        NGram Ergebnisse übernehmen
+    */
+
+    if (reverseResults.empty())
+    {
+        for (auto &r : ngramResults)
+        {
+            r.score *= 0.5;
+
+            reverseResults.push_back(r);
+        }
     }
 
     std::sort(
-        final.begin(),
-        final.end(),
+        reverseResults.begin(),
+        reverseResults.end(),
         [](const QueryResult &a,
            const QueryResult &b)
         {
             return a.score > b.score;
         });
 
-    return final;
+    return reverseResults;
 }
 
 void Geocoder::fillAttributeMatches(

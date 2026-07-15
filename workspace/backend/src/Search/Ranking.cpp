@@ -210,13 +210,13 @@ double Ranking::finalReverseScore(
 
     if (match.matchedHouseNumber)
     {
-        score += 0.10;
+        score += 0.05;
     }
 
     if (match.matchedStreet &&
         match.matchedHouseNumber)
     {
-        score += 0.15;
+        score += 0.05;
     }
 
     if (match.matchedArea &&

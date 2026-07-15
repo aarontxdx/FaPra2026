@@ -1,6 +1,7 @@
 #include "../include/Search/NGramIndex.hpp"
 #include "../include/Utils/FuzzyUtils.hpp"
 #include "GeocoderObjects/SearchObject.hpp"
+#include "Utils/UtilFunctions.hpp"
 
 #include <algorithm>
 #include <set>
@@ -28,6 +29,8 @@ void NGramIndex::build(
 
     for (const auto &[token, entries] : reverseIndex)
     {
+        if (helper::isNumberToken(token))
+            continue;
         size_t id = records_.size();
 
         records_.push_back(
@@ -190,7 +193,7 @@ std::vector<MatchFeatures> NGramIndex::query(
              * Wichtig für Ranking/Coverage
              */
             feature.matchedTokens.insert(
-                token);
+                q);
 
             results.push_back(
                 feature);

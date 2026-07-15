@@ -4,6 +4,11 @@
 #include "GeocoderObjects/AdminArea.hpp"
 
 #include <vector>
+#include <algorithm>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <utility>
 
 namespace helper
 {
@@ -30,4 +35,18 @@ namespace helper
      * This function updates the boundingbox for a given Point
      */
     void updateObjectBoundingBox(Point &centroid, std::tuple<Point, Point> &GeocoderObjectBB);
+
+    inline bool isNumberToken(const std::string &token)
+    {
+        if (token.empty())
+            return false;
+
+        return std::all_of(
+            token.begin(),
+            token.end(),
+            [](unsigned char c)
+            {
+                return std::isdigit(c);
+            });
+    }
 }

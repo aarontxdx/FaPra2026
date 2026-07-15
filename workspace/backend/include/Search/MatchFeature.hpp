@@ -19,6 +19,8 @@ namespace geocoder
         std::size_t queryTokenCount = 0;
         std::size_t matchedQueryTokens = 0;
 
+        std::string matchedQueryToken;
+
         std::unordered_set<std::string> matchedTokens;
 
         bool matchedStreet = false;
