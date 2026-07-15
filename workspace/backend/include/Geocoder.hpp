@@ -4,6 +4,7 @@
 #include "GeocoderObjects/SearchObject.hpp"
 #include "Search/NGramIndex.hpp"
 #include "Search/Ranking.hpp"
+#include "Search/ObjectMatch.hpp"
 
 #include <string>
 #include <vector>
@@ -59,8 +60,20 @@ private:
     /**
      * connect token which belong together
      */
-    std::vector<geocoder::search::MatchFeatures>
-    extendedSearch(const std::string &token);
+    std::vector<Token> buildSearchTokens(
+        const std::vector<Token> &tokens);
+
+    void checkObjectMatch(
+        ObjectMatch &match,
+        const SearchObject &object,
+        const std::string &token);
+
+    void checkAreaContext(
+        ObjectMatch &match,
+        const SearchObject &object,
+        const std::vector<SearchObject> &areas);
+
+    const std::vector<IndexEntry> *extendedSearch(const std::string &token);
 
     std::vector<QueryResult> searchReverseIndex(
         const std::string &query);

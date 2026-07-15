@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GeocoderObjects/SearchObject.hpp"
+#include "Search/ObjectMatch.hpp"
 
 #include <cstddef>
 #include <unordered_set>
@@ -54,6 +55,10 @@ namespace geocoder::search
          */
         double finalScore(
             const MatchFeatures &features) const;
+
+        double finalReverseScore(
+            const ObjectMatch &match,
+            std::size_t queryTokenCount) const;
 
     private:
         /**

@@ -1,4 +1,5 @@
 #include "Geocoder.hpp"
+#include "GeocoderObjects/SearchObject.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -8,6 +9,7 @@
 #include <omp.h>
 #include <sstream>
 
+using namespace geocoder;
 using namespace geocoder::search;
 
 namespace
@@ -183,6 +185,11 @@ namespace
         }
 
         str = std::move(result);
+    }
+
+    bool isAdminArea(const SearchObject &object)
+    {
+        return std::holds_alternative<AdminArea *>(object);
     }
 }
 
@@ -443,7 +450,11 @@ void Geocoder::index(
 {
     addToken(index, r.name, &r);
 
+    addToken(index, r.country, &r);
+    addToken(index, r.state, &r);
+    addToken(index, r.county, &r);
     addToken(index, r.city, &r);
+    addToken(index, r.postcode, &r);
 
     addToken(
         index,
@@ -451,35 +462,264 @@ void Geocoder::index(
         &r);
 }
 
-std::vector<MatchFeatures>
-Geocoder::extendedSearch(const std::string &token)
+std::vector<Token> Geocoder::buildSearchTokens(
+    const std::vector<Token> &tokens)
 {
-    std::vector<MatchFeatures> result;
+    std::vector<Token> result;
 
-    std::string norm = token;
-    normalize(norm);
-
-    if (norm.empty())
-        return result;
-
-    auto it = mIndex.find(norm);
-
-    if (it != mIndex.end())
+    for (size_t i = 0; i < tokens.size();)
     {
-        for (const auto &entry : it->second)
+        bool found = false;
+
+        // maximal 3 Tokens zusammenführen
+        for (int length = 3; length >= 1; length--)
         {
-            MatchFeatures feature;
+            if (i + length > tokens.size())
+                continue;
 
-            feature.object = entry.object;
-            feature.exact = true;
-            feature.prefix = true;
-            feature.substring = true;
+            std::string candidate;
 
-            result.push_back(feature);
+            for (int j = 0; j < length; j++)
+            {
+                if (j > 0)
+                    candidate += " ";
+
+                candidate += tokens[i + j];
+            }
+
+            auto it = mIndex.find(candidate);
+
+            if (it != mIndex.end())
+            {
+                result.push_back(candidate);
+
+                i += length;
+
+                found = true;
+
+                break;
+            }
+        }
+
+        // eigentlich nur falls gar kein Token gefunden wurde
+        if (!found)
+        {
+            result.push_back(tokens[i]);
+            i++;
         }
     }
 
     return result;
+}
+
+void Geocoder::checkObjectMatch(
+    ObjectMatch &match,
+    const SearchObject &object,
+    const std::string &token)
+{
+    std::visit(
+        [&](auto *obj)
+        {
+            using T = std::decay_t<decltype(*obj)>;
+
+            /*
+             * Gemeinsame Attribute
+             */
+            std::string name = obj->name;
+            normalize(name);
+
+            if (name == token)
+            {
+                match.matchedName = true;
+            }
+
+            std::string country = obj->country;
+            normalize(country);
+
+            if (country == token)
+            {
+                match.matchedCountry = true;
+            }
+
+            std::string state = obj->state;
+            normalize(state);
+
+            if (state == token)
+            {
+                match.matchedState = true;
+            }
+
+            std::string county = obj->county;
+            normalize(county);
+
+            if (county == token)
+            {
+                match.matchedCounty = true;
+            }
+
+            std::string city = obj->city;
+            normalize(city);
+
+            if (city == token)
+            {
+                match.matchedCity = true;
+            }
+
+            std::string postcode = obj->postcode;
+            normalize(postcode);
+
+            if (postcode == token)
+            {
+                match.matchedPostcode = true;
+            }
+
+            /*
+             * Spezifische Attribute
+             */
+
+            if constexpr (std::is_same_v<T, Building>)
+            {
+                std::string street = obj->street;
+                normalize(street);
+
+                if (street == token)
+                {
+                    match.matchedStreet = true;
+                }
+
+                std::string number = obj->housenumber;
+                normalize(number);
+
+                if (number == token)
+                {
+                    match.matchedHouseNumber = true;
+                }
+            }
+
+            else if constexpr (std::is_same_v<T, Road>)
+            {
+                /*
+                 * name wurde oben schon geprüft
+                 * aber für Ranking explizit Straße markieren
+                 */
+                if (name == token)
+                {
+                    match.matchedStreet = true;
+                }
+            }
+
+            else if constexpr (std::is_same_v<T, AdminArea>)
+            {
+                match.matchedArea = true;
+            }
+        },
+        object);
+}
+
+void Geocoder::checkAreaContext(
+    ObjectMatch &match,
+    const SearchObject &object,
+    const std::vector<SearchObject> &areas)
+{
+    std::visit(
+        [&](auto *obj)
+        {
+            using T =
+                std::decay_t<decltype(*obj)>;
+
+            /*
+                Area selbst
+                -> ist bereits ein Treffer
+            */
+            if constexpr (
+                std::is_same_v<T, AdminArea>)
+            {
+                return;
+            }
+
+            /*
+                Nur Objekte mit GeocoderObject Basisdaten prüfen
+            */
+            if constexpr (
+                std::is_base_of_v<
+                    GeocoderObject,
+                    T>)
+            {
+                std::string city =
+                    obj->city;
+
+                std::string county =
+                    obj->county;
+
+                std::string state =
+                    obj->state;
+
+                std::string postcode =
+                    obj->postcode;
+
+                normalize(city);
+                normalize(county);
+                normalize(state);
+                normalize(postcode);
+
+                for (const auto &areaObject : areas)
+                {
+                    const auto *area =
+                        std::get_if<AdminArea *>(
+                            &areaObject);
+
+                    if (!area)
+                        continue;
+
+                    std::string areaName =
+                        (*area)->name;
+
+                    normalize(areaName);
+
+                    if (city == areaName)
+                    {
+                        match.matchedCity = true;
+                        continue;
+                    }
+
+                    if (county == areaName)
+                    {
+                        match.matchedCounty = true;
+                        continue;
+                    }
+
+                    if (state == areaName)
+                    {
+                        match.matchedState = true;
+                        continue;
+                    }
+
+                    if (postcode == areaName)
+                    {
+                        match.matchedPostcode = true;
+                        continue;
+                    }
+                }
+            }
+        },
+        object);
+}
+
+const std::vector<IndexEntry> *
+Geocoder::extendedSearch(const std::string &token)
+{
+    std::string norm = token;
+    normalize(norm);
+
+    if (norm.empty())
+        return nullptr;
+
+    auto it = mIndex.find(norm);
+
+    if (it == mIndex.end())
+        return nullptr;
+
+    return &it->second;
 }
 
 std::vector<QueryResult> Geocoder::searchReverseIndex(
@@ -489,70 +729,152 @@ std::vector<QueryResult> Geocoder::searchReverseIndex(
 
     auto tokens = tokenize();
 
+    tokens = buildSearchTokens(tokens);
+
     Ranking ranking;
 
-    const std::size_t queryTokenCount = tokens.size();
+    const std::size_t queryTokenCount =
+        tokens.size();
 
-    std::unordered_map<SearchObject,
-                       std::vector<MatchFeatures>,
-                       SearchObjectHash,
-                       SearchObjectEqual>
+    std::unordered_map<
+        SearchObject,
+        ObjectMatch,
+        SearchObjectHash,
+        SearchObjectEqual>
         matches;
+
+    std::vector<SearchObject> areaCandidates;
+
+    /*
+        Phase 1:
+        Areas erkennen
+    */
+    std::vector<Token> searchTokens;
 
     for (const auto &token : tokens)
     {
         if (token.empty())
             continue;
 
-        auto entries = extendedSearch(token);
+        const auto *entries =
+            extendedSearch(token);
 
-        for (auto &entry : entries)
+        if (!entries)
         {
-            entry.queryTokenCount = tokens.size();
-            entry.matchedTokens.insert(token);
+            searchTokens.push_back(token);
+            continue;
+        }
 
-            matches[entry.object].push_back(entry);
+        bool isAreaToken = false;
+
+        for (const auto &entry : *entries)
+        {
+            if (isAdminArea(entry.object))
+            {
+                areaCandidates.push_back(
+                    entry.object);
+
+                isAreaToken = true;
+            }
+        }
+
+        /*
+            Nur Nicht-Area Tokens
+            kommen in die Suche
+        */
+        if (!isAreaToken)
+        {
+            searchTokens.push_back(token);
         }
     }
 
+    if (searchTokens.empty())
+    {
+        for (auto &area : areaCandidates)
+        {
+            ObjectMatch match;
+
+            match.matchedArea = true;
+            match.bestScore = 0.5;
+
+            matches[area] = match;
+        }
+    }
+
+    /*
+        Phase 2:
+        Nur Nicht-Area Kandidaten suchen
+    */
+
+    for (const auto &token : searchTokens)
+    {
+        const auto *entries =
+            extendedSearch(token);
+
+        if (!entries)
+            continue;
+
+        for (const auto &entry : *entries)
+        {
+            auto &match =
+                matches[entry.object];
+
+            match.matchedTokens.insert(token);
+
+            checkObjectMatch(
+                match,
+                entry.object,
+                token);
+
+            match.bestScore =
+                std::max(
+                    match.bestScore,
+                    0.5);
+        }
+    }
+
+    /*
+        Phase 3:
+        Area Kontext anwenden
+    */
+
+    for (auto &[object, match] : matches)
+    {
+        checkAreaContext(
+            match,
+            object,
+            areaCandidates);
+    }
+
+    /*
+        Phase 4:
+        Ranking
+    */
+
     std::vector<QueryResult> results;
+
     results.reserve(matches.size());
 
-    for (auto &[object, features] : matches)
+    for (auto &[object, match] : matches)
     {
-        double bestScore = 0.0;
-
-        std::unordered_set<std::string> uniqueMatchedTokens;
-
-        for (auto &feature : features)
-        {
-            bestScore = std::max(
-                bestScore,
-                ranking.finalScore(feature));
-
-            uniqueMatchedTokens.insert(
-                feature.matchedTokens.begin(),
-                feature.matchedTokens.end());
-        }
-
-        double coverage =
-            static_cast<double>(uniqueMatchedTokens.size()) /
-            static_cast<double>(
-                std::max<std::size_t>(1, queryTokenCount));
-
         double score =
-            bestScore * (0.8 + 0.2 * coverage);
+            ranking.finalReverseScore(
+                match,
+                queryTokenCount);
 
         results.push_back(
             {object,
              score});
     }
 
-    std::sort(results.begin(), results.end(),
-              [](const QueryResult &a, const QueryResult &b)
-              {
-                  return a.score > b.score;
-              });
+    std::sort(
+        results.begin(),
+        results.end(),
+        [](const QueryResult &a,
+           const QueryResult &b)
+        {
+            return a.score > b.score;
+        });
 
     return results;
 }
@@ -574,6 +896,8 @@ std::vector<QueryResult> Geocoder::searchNGram(
     Ranking ranking;
 
     auto tokens = tokenize();
+
+    tokens = buildSearchTokens(tokens);
 
     auto features =
         mNGramIndex->query(input, 20);

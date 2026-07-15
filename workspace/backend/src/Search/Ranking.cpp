@@ -137,3 +137,73 @@ double Ranking::finalScore(
         0.0,
         1.0);
 }
+
+double Ranking::finalReverseScore(
+    const ObjectMatch &match,
+    std::size_t queryTokenCount) const
+{
+    double coverage =
+        static_cast<double>(
+            match.matchedTokens.size()) /
+        static_cast<double>(
+            std::max<std::size_t>(
+                1,
+                queryTokenCount));
+
+    double score =
+        match.bestScore *
+        (0.8 + 0.2 * coverage);
+
+    if (match.matchedPostcode)
+    {
+        score += 0.10;
+    }
+
+    if (match.matchedArea)
+    {
+        score += 0.08;
+    }
+
+    if (match.matchedCity)
+    {
+        score += 0.08;
+    }
+
+    if (match.matchedCounty)
+    {
+        score += 0.05;
+    }
+
+    if (match.matchedState)
+    {
+        score += 0.03;
+    }
+
+    if (match.matchedStreet)
+    {
+        score += 0.10;
+    }
+
+    if (match.matchedHouseNumber)
+    {
+        score += 0.10;
+    }
+
+    if (match.matchedStreet &&
+        match.matchedHouseNumber)
+    {
+        score += 0.15;
+    }
+
+    if (match.matchedArea &&
+        match.matchedStreet &&
+        match.matchedHouseNumber)
+    {
+        score += 0.10;
+    }
+
+    return std::clamp(
+        score,
+        0.0,
+        1.0);
+}
