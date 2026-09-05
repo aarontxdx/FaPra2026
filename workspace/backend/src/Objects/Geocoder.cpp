@@ -961,13 +961,6 @@ std::vector<QueryResult> Geocoder::searchReverseIndex(
 std::vector<QueryResult> Geocoder::searchNGram(
     const std::string &input)
 {
-    std::unordered_map<
-        SearchObject,
-        MatchFeatures,
-        SearchObjectHash,
-        SearchObjectEqual>
-        matches;
-
     mQueryString = input;
 
     std::vector<QueryResult> results;
@@ -988,7 +981,40 @@ std::vector<QueryResult> Geocoder::searchNGram(
         searchTokens.push_back(token);
     }
 
-    std::vector<MatchFeatures> allFeatures;
+    std::unordered_map<
+        SearchObject,
+        std::unordered_map<std::string, MatchFeatures>,
+        SearchObjectHash,
+        SearchObjectEqual>
+        tokenMatches;
+
+    std::vector<SearchObject> areaCandidates;
+
+    for (const auto &token : tokens)
+    {
+        const auto *entries =
+            extendedSearch(token);
+
+        if (!entries)
+            continue;
+
+        for (const auto &entry : *entries)
+        {
+            if (isAdminArea(entry.object))
+            {
+                areaCandidates.push_back(entry.object);
+            }
+        }
+    }
+
+    const auto tokenScore = [](const MatchFeatures &feature)
+    {
+        return (feature.exact ? 0.45 : 0.0) +
+               (feature.prefix ? 0.20 : 0.0) +
+               (feature.substring ? 0.05 : 0.0) +
+               0.20 * feature.ngramScore +
+               0.10 * feature.editScore;
+    };
 
     for (const auto &token : searchTokens)
     {
@@ -997,55 +1023,57 @@ std::vector<QueryResult> Geocoder::searchNGram(
 
         for (auto &feature : features)
         {
-            allFeatures.push_back(feature);
+            auto &matchesForToken =
+                tokenMatches[feature.object];
+
+            auto match =
+                matchesForToken.find(feature.matchedQueryToken);
+
+            if (match == matchesForToken.end() ||
+                tokenScore(feature) > tokenScore(match->second))
+            {
+                matchesForToken[feature.matchedQueryToken] =
+                    std::move(feature);
+            }
         }
     }
 
-    for (auto &feature : allFeatures)
+    for (auto &[object, tokenFeatures] : tokenMatches)
     {
-        auto it = matches.find(feature.object);
+        MatchFeatures feature;
+        feature.object = object;
+        feature.queryTokenCount = searchTokens.size();
+        feature.matchedQueryTokens = tokenFeatures.size();
 
-        if (it == matches.end())
+        for (const auto &[queryToken, tokenFeature] : tokenFeatures)
         {
-            matches.emplace(
-                feature.object,
-                feature);
+            feature.matchedTokens.insert(queryToken);
+            feature.ngramScore += tokenFeature.ngramScore;
+            feature.editScore += tokenFeature.editScore;
+            feature.tokenScore += tokenFeature.tokenScore;
+            feature.exact = feature.exact || tokenFeature.exact;
+            feature.prefix = feature.prefix || tokenFeature.prefix;
+            feature.substring = feature.substring || tokenFeature.substring;
         }
-        else
+
+        if (!tokenFeatures.empty())
         {
-            auto &existing = it->second;
+            const double divisor =
+                static_cast<double>(tokenFeatures.size());
 
-            existing.matchedTokens.insert(
-                feature.matchedTokens.begin(),
-                feature.matchedTokens.end());
-
-            existing.ngramScore +=
-                feature.ngramScore;
-
-            existing.editScore +=
-                feature.editScore;
+            feature.ngramScore /= divisor;
+            feature.editScore /= divisor;
+            feature.tokenScore /= divisor;
         }
-    }
 
-    for (auto &[object, feature] : matches)
-    {
         fillAttributeMatches(
             feature,
             tokens);
 
-        feature.queryTokenCount =
-            searchTokens.size();
-
-        feature.matchedQueryTokens =
-            std::min(
-                feature.matchedTokens.size(),
-                searchTokens.size());
-
-        if (feature.matchedTokens.size() > 1)
-        {
-            feature.ngramScore /=
-                feature.matchedTokens.size();
-        }
+        checkAreaContext(
+            feature,
+            object,
+            areaCandidates);
 
         double score =
             ranking.finalScore(feature);

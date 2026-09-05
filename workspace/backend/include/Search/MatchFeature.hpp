@@ -15,6 +15,7 @@ namespace geocoder
 
         double ngramScore = 0.0;
         double editScore = 0.0;
+        double tokenScore = 0.0;
 
         std::size_t queryTokenCount = 0;
         std::size_t matchedQueryTokens = 0;

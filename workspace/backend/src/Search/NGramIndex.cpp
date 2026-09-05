@@ -67,12 +67,16 @@ std::vector<MatchFeatures> NGramIndex::query(
     if (qgrams.empty())
         return {};
 
+    std::set<std::string> uniqueQueryGrams(
+        qgrams.begin(),
+        qgrams.end());
+
     std::unordered_map<size_t, size_t> counts;
 
     /*
      * Finde passende NGram Records
      */
-    for (const auto &g : qgrams)
+    for (const auto &g : uniqueQueryGrams)
     {
         auto it = index_.find(g);
 
@@ -83,7 +87,15 @@ std::vector<MatchFeatures> NGramIndex::query(
             counts[id]++;
     }
 
-    std::vector<std::pair<size_t, double>> candidates;
+    struct Candidate
+    {
+        size_t id;
+        double overlap;
+        double editScore;
+        double score;
+    };
+
+    std::vector<Candidate> candidates;
 
     candidates.reserve(counts.size());
 
@@ -100,12 +112,31 @@ std::vector<MatchFeatures> NGramIndex::query(
             std::max<size_t>(
                 1,
                 std::max(
-                    qgrams.size(),
+                    uniqueQueryGrams.size(),
                     recGramCount));
 
-        candidates.emplace_back(
-            id,
-            overlap);
+        const int distance = levenshtein(qn, token);
+        const size_t maxLength = std::max(qn.size(), token.size());
+        const double editScore =
+            1.0 - static_cast<double>(distance) /
+                      static_cast<double>(std::max<size_t>(1, maxLength));
+
+        const bool exact = qn == token;
+        const bool prefix = !exact &&
+                            (token.starts_with(qn) || qn.starts_with(token));
+        const bool substring = !exact && !prefix &&
+                               (token.find(qn) != std::string::npos ||
+                                qn.find(token) != std::string::npos);
+
+        const double score =
+            (exact ? 0.45 : 0.0) +
+            (prefix ? 0.20 : 0.0) +
+            (substring ? 0.05 : 0.0) +
+            0.20 * overlap +
+            0.10 * std::max(0.0, editScore);
+
+        candidates.push_back(
+            {id, overlap, std::max(0.0, editScore), score});
     }
 
     if (candidates.empty())
@@ -124,7 +155,7 @@ std::vector<MatchFeatures> NGramIndex::query(
         candidates.end(),
         [](const auto &a, const auto &b)
         {
-            return a.second > b.second;
+            return a.score > b.score;
         });
 
     std::vector<MatchFeatures> results;
@@ -132,34 +163,13 @@ std::vector<MatchFeatures> NGramIndex::query(
     for (size_t i = 0; i < candidateBudget; ++i)
     {
         size_t id =
-            candidates[i].first;
+            candidates[i].id;
 
         const auto &token =
             records_[id].token;
 
-        double overlap =
-            candidates[i].second;
-
-        int lev =
-            levenshtein(
-                qn,
-                token);
-
-        size_t maxLength =
-            std::max(
-                qn.size(),
-                token.size());
-
-        double editScore =
-            1.0 -
-            (static_cast<double>(lev) /
-             static_cast<double>(
-                 std::max<size_t>(
-                     1,
-                     maxLength)));
-
-        if (editScore < 0.0)
-            editScore = 0.0;
+        const double overlap = candidates[i].overlap;
+        const double editScore = candidates[i].editScore;
 
         /*
          * Jetzt aus ReverseIndex holen
@@ -182,9 +192,19 @@ std::vector<MatchFeatures> NGramIndex::query(
 
             feature.editScore =
                 editScore;
+            feature.tokenScore =
+                candidates[i].score;
 
+            feature.exact = qn == token;
+            feature.prefix = !feature.exact &&
+                             (token.starts_with(qn) || qn.starts_with(token));
+            feature.substring = !feature.exact && !feature.prefix &&
+                                (token.find(qn) != std::string::npos ||
+                                 qn.find(token) != std::string::npos);
+
+            feature.matchedQueryToken = qn;
             feature.matchedTokens.insert(
-                q);
+                qn);
 
             results.push_back(
                 feature);

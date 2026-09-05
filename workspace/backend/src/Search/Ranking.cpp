@@ -8,6 +8,14 @@ using namespace geocoder::search;
 double Ranking::matchScore(
     const MatchFeatures &features) const
 {
+    if (features.tokenScore > 0.0)
+    {
+        return std::clamp(
+            features.tokenScore,
+            0.0,
+            1.0);
+    }
+
     double score = 0.0;
 
     if (features.exact)
@@ -102,7 +110,7 @@ double Ranking::objectScore(
     const double completeness =
         completenessScore(
             features.object,
-            features.queryTokenCount);
+            features.matchedQueryTokens);
 
     /*
         prior: which object is this
@@ -137,7 +145,7 @@ double Ranking::finalScore(
     return std::clamp(
         0.65 * match +
             0.20 * object +
-            0.30 * area,
+            0.15 * area,
         0.0,
         1.0);
 }
