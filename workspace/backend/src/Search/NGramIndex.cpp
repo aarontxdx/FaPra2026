@@ -87,9 +87,6 @@ std::vector<MatchFeatures> NGramIndex::query(
 
     candidates.reserve(counts.size());
 
-    /*
-     * Berechne Ähnlichkeit der Tokens
-     */
     for (const auto &[id, common] : counts)
     {
         const auto &token =
@@ -132,9 +129,6 @@ std::vector<MatchFeatures> NGramIndex::query(
 
     std::vector<MatchFeatures> results;
 
-    /*
-     * Erzeuge Matches aus ReverseIndex
-     */
     for (size_t i = 0; i < candidateBudget; ++i)
     {
         size_t id =
@@ -189,9 +183,6 @@ std::vector<MatchFeatures> NGramIndex::query(
             feature.editScore =
                 editScore;
 
-            /*
-             * Wichtig für Ranking/Coverage
-             */
             feature.matchedTokens.insert(
                 q);
 

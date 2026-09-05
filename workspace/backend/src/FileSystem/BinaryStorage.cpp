@@ -1,6 +1,7 @@
 #include "BinaryStorage.hpp"
 
 #include <iostream>
+#include <cstring>
 
 struct BinaryHeader
 {
@@ -402,7 +403,7 @@ bool BinaryStorage::saveBinary(
 
     BinaryHeader header{};
 
-    std::memcpy(
+    memcpy(
         header.magic,
         "GEOCODE",
         7);
